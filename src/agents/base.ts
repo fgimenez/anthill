@@ -122,7 +122,7 @@ export abstract class AgentBase {
       })
       return res
     } catch (e) {
-      console.warn(`[mppFetch] ${this.config.type} → ${url.replace(/.*localhost:\d+/, '')} : ${(e as Error).message?.slice(0, 120)}`)
+      console.warn(`[mppFetch] ${this.config.type} → ${url.replace(/.*localhost:\d+/, '')} : ${(e as Error).message?.slice(0, 400)}`)
       throw e
     }
   }
