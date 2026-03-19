@@ -30,6 +30,7 @@
     .event.payment { color: #38bdf8; }
     .event.merge { color: #f59e0b; }
     .event.price-change { color: #a3e635; }
+    .event.decision { color: #888; }
     @keyframes fadein { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 
     footer { grid-column: 1/-1; padding: 6px 20px; border-top: 1px solid #222; font-size: 0.65rem; color: #333; }
@@ -37,8 +38,9 @@
     /* Graph nodes */
     .node circle { stroke-width: 2; cursor: pointer; }
     .node text { font-size: 10px; fill: #ccc; pointer-events: none; }
-    .link { stroke: #333; stroke-opacity: 0.6; }
-    .link.active { stroke: #38bdf8; stroke-opacity: 1; stroke-width: 2; animation: pulse 0.5s; }
+    .link { stroke: #2a2a2a; stroke-opacity: 0.8; stroke-width: 1.5; }
+    .link.confirmed { stroke: #444; stroke-opacity: 1; stroke-width: 2; }
+    .link.active { stroke: #38bdf8; stroke-opacity: 1; stroke-width: 2.5; animation: pulse 0.5s; }
     @keyframes pulse { 0% { stroke-opacity: 1; } 100% { stroke-opacity: 0.2; } }
 
     /* Price chart */
@@ -144,19 +146,24 @@
       simulation.alpha(0.3).restart()
     }
 
-    function addPersistentLink(fromNode, toNode) {
-      const key = `${fromNode.id}-${toNode.id}`
+    function confirmLink(fromNode, toNode) {
       if (fromNode.id === toNode.id) return
-      if (links.find(l => (l.source?.id ?? l.source) === fromNode.id && (l.target?.id ?? l.target) === toNode.id)) return
-      links.push({ source: fromNode.id, target: toNode.id })
-      renderGraph()
+      const existing = links.find(l => (l.source?.id ?? l.source) === fromNode.id && (l.target?.id ?? l.target) === toNode.id)
+      if (existing) {
+        existing.confirmed = true
+        linkLayer.selectAll('.link').filter(d => d === existing).attr('class', 'link confirmed')
+      } else {
+        const lnk = { source: fromNode.id, target: toNode.id, confirmed: true }
+        links.push(lnk)
+        renderGraph()
+      }
     }
 
     function flashLink(fromAddr, toUrl) {
       const fromNode = nodes.find(n => n.address === fromAddr)
       const toNode = nodes.find(n => toUrl && toUrl.startsWith(n.url))
       if (!fromNode || !toNode) return
-      addPersistentLink(fromNode, toNode)
+      confirmLink(fromNode, toNode)
       const line = linkLayer.append('line')
         .attr('class', 'link active')
         .attr('x1', fromNode.x).attr('y1', fromNode.y)
@@ -193,11 +200,13 @@
       div.className = `event ${ev.type}`
       const time = new Date(ev.ts).toLocaleTimeString()
       if (ev.type === 'payment') {
-        div.textContent = `${time} 💸 ${ev.agentType} → ${(ev.to || '').replace(/https?:\/\/[^/]+/, '').slice(0, 20)}`
+        div.textContent = `${time} 💸 ${ev.agentType} paid → ${(ev.to || '').replace(/https?:\/\/[^/]+/, '')}`
       } else if (ev.type === 'merge') {
         div.textContent = `${time} 🤝 merge accepted by ${ev.agentType}`
-      } else {
-        div.textContent = `${time} 📈 ${ev.agentType} price → ${(Number(ev.price || '0') / 1_000_000).toFixed(2)} pathUSD`
+      } else if (ev.type === 'price-change') {
+        div.textContent = `${time} 📈 ${ev.agentType} price → ${(Number(ev.price || '0') / 1_000_000).toFixed(0)} pathUSD`
+      } else if (ev.type === 'decision') {
+        div.textContent = `${time} 🧠 ${ev.agentType} → ${ev.action}`
       }
       list.prepend(div)
       if (list.children.length > 50) list.lastChild.remove()
@@ -236,11 +245,34 @@
       try {
         const agents = await (await fetch(`${REGISTRY_URL}/agents`)).json()
         const known = new Set(nodes.map(n => n.id))
+        let newNodes = false
         agents.forEach(a => {
           if (!known.has(a.id)) {
             nodes.push({ id: a.id, type: a.type, address: a.address, url: a.url, x: 300 + Math.random()*200, y: 200 + Math.random()*200 })
+            newNodes = true
           }
         })
+        if (newNodes) {
+          // Structural baseline links — keep graph connected from the start
+          const byType = t => nodes.filter(n => n.type === t)
+          const addStructural = (a, b) => {
+            if (!a || !b || a.id === b.id) return
+            if (!links.find(l => (l.source?.id ?? l.source) === a.id && (l.target?.id ?? l.target) === b.id))
+              links.push({ source: a.id, target: b.id, confirmed: false })
+          }
+          for (const market of byType('market')) {
+            for (const p of byType('producer'))   addStructural(market, p)
+            for (const p of byType('processor'))  addStructural(market, p)
+          }
+          for (const trader of byType('trader')) {
+            for (const p of byType('producer'))   addStructural(trader, p)
+            for (const p of byType('processor'))  addStructural(trader, p)
+          }
+          for (const spec of byType('speculator'))
+            for (const t of byType('trader'))     addStructural(spec, t)
+          for (const proc of byType('processor'))
+            for (const p of byType('producer'))   addStructural(proc, p)
+        }
         if (nodes.length > 0 && !simulation) {
           const rect = document.getElementById('graph').getBoundingClientRect()
           initSimulation(rect.width, rect.height)

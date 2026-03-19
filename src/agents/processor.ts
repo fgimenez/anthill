@@ -62,6 +62,7 @@ export class ProcessorAgent extends AgentBase {
   }
 
   async tickWithAction(action: string): Promise<void> {
+    this.emitDecision(action)
     if (action === 'raise_price') {
       this.currentPrice = this.currentPrice * 105n / 100n
       this.emitPriceChange()

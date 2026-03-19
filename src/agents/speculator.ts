@@ -32,6 +32,7 @@ export class SpeculatorAgent extends AgentBase {
       { action: 'skip' },
     )
 
+    this.emitDecision(action.action)
     if (action.action === 'arbitrage') {
       await this.doArbitrage(agents)
     } else if (action.action === 'propose_merger' && action.target_url) {

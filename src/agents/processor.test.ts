@@ -8,16 +8,16 @@ describe('isMarginPositive', () => {
   })
 
   it('returns true when margin exceeds threshold', () => {
-    // productsBid=2.00, goodsPrice=1.00 → margin=1.00 > threshold=0.30
-    expect(isMarginPositive(2_000_000n, 1_000_000n, PROCESSOR_MARGIN_THRESHOLD)).toBe(true)
+    // productsBid=2000, goodsPrice=1000 → margin=1000 > threshold=300
+    expect(isMarginPositive(2_000_000_000n, 1_000_000_000n, PROCESSOR_MARGIN_THRESHOLD)).toBe(true)
   })
 
   it('returns false when margin is below threshold', () => {
-    // productsBid=1.10, goodsPrice=1.00 → margin=0.10 < threshold=0.30
-    expect(isMarginPositive(1_100_000n, 1_000_000n, PROCESSOR_MARGIN_THRESHOLD)).toBe(false)
+    // productsBid=1100, goodsPrice=1000 → margin=100 < threshold=300
+    expect(isMarginPositive(1_100_000_000n, 1_000_000_000n, PROCESSOR_MARGIN_THRESHOLD)).toBe(false)
   })
 
   it('returns false when exactly at threshold (must strictly exceed)', () => {
-    expect(isMarginPositive(1_300_000n, 1_000_000n, PROCESSOR_MARGIN_THRESHOLD)).toBe(false)
+    expect(isMarginPositive(1_300_000_000n, 1_000_000_000n, PROCESSOR_MARGIN_THRESHOLD)).toBe(false)
   })
 })

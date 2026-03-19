@@ -36,6 +36,7 @@ export class ProducerAgent extends AgentBase {
       ProducerActionSchema,
       { action: 'hold' },
     )
+    this.emitDecision(action.action)
     if (action.action === 'raise_price') {
       this.currentPrice = this.currentPrice * 105n / 100n
       this.emitPriceChange()

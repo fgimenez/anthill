@@ -126,6 +126,16 @@ export abstract class AgentBase {
     })
   }
 
+  protected emitDecision(action: string) {
+    eventBus.emit('event', {
+      type: 'decision',
+      from: this.address,
+      agentType: this.config.type,
+      action,
+      ts: Date.now(),
+    })
+  }
+
   async register(registryUrl: string, agentUrl: string): Promise<void> {
     await fetch(`${registryUrl}/agents/register`, {
       method: 'POST',
