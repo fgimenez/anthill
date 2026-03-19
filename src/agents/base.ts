@@ -4,8 +4,10 @@ import { z } from 'zod'
 import { Mppx } from 'mppx/express'
 import { tempo } from 'mppx/server'
 import { Mppx as MppxClient, tempo as tempoClient } from 'mppx/client'
+import { createClient, custom } from 'viem'
+import { tempoModerato } from 'viem/chains'
 import { privateKeyToAccount } from 'viem/accounts'
-import { MIN_PRICE, PATHUSD, PATHUSD_DECIMALS, MPP_SECRET_KEY, FEE_PAYER_URL } from '../constants.js'
+import { MIN_PRICE, PATHUSD, PATHUSD_DECIMALS, MPP_SECRET_KEY, FEE_PAYER_URL, RPC_URL } from '../constants.js'
 import type { AgentType } from '../registry/index.js'
 import { eventBus } from '../dashboard/events.js'
 
@@ -69,8 +71,30 @@ export abstract class AgentBase {
       secretKey: MPP_SECRET_KEY,
     })
 
+    // Custom client: intercepts eth_estimateGas so fee-payer tx prep doesn't fail.
+    // Gas estimation charges gas to sender in pathUSD (24 gwei × ~40k gas ≈ 950M pathUSD),
+    // but sender only has 1M pathUSD. Fee payer covers actual gas on-chain; we return a
+    // fixed estimate here so prepareTransactionRequest can proceed.
+    const getClientForCharge = () => createClient({
+      chain: tempoModerato,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      transport: custom<any>({
+        async request({ method, params }: { method: string; params?: unknown }) {
+          if (method === 'eth_estimateGas') return '0x50000'  // 327k gas; fee payer covers it
+          const res = await fetch(RPC_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+          })
+          const json = await res.json() as { result: unknown; error?: { message: string } }
+          if (json.error) throw new Error(json.error.message)
+          return json.result
+        },
+      }),
+    })
+
     this.mppxClient = MppxClient.create({
-      methods: [tempoClient.charge({ account })],
+      methods: [tempoClient.charge({ account, getClient: getClientForCharge })],
       polyfill: false,
     })
 
@@ -122,7 +146,7 @@ export abstract class AgentBase {
       })
       return res
     } catch (e) {
-      console.warn(`[mppFetch] ${this.config.type} → ${url.replace(/.*localhost:\d+/, '')} : ${(e as Error).message?.slice(0, 400)}`)
+      console.warn(`[mppFetch] ${this.config.type} → ${url.replace(/.*localhost:\d+/, '')} : ${(e as Error).message?.slice(0, 120)}`)
       throw e
     }
   }
