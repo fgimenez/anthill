@@ -9,7 +9,7 @@ Each agent is an HTTP server with a Claude Haiku brain. Every tick, agents call 
 ## How it works
 
 ```
-Market (fluctuating bids)
+Market (deterministic random-walk bids + stress events)
   │
   ├── buys goods from  →  Producer  (GET /produce, MPP-protected)
   │
@@ -18,10 +18,10 @@ Market (fluctuating bids)
                            buys goods from Producer
 
 Trader  (GET /signal, MPP-protected)
-  └── observes prices, sells market intelligence
+  └── spot-buys from Producer + Processor, sells price intelligence
 
-Speculator  (Round 2)
-  └── arbitrages price gaps, acquires weakened agents
+Speculator
+  └── buys signals from Trader, arbitrages gaps, proposes mergers
 ```
 
 Every inter-agent call follows the MPP flow:
@@ -33,7 +33,7 @@ GET /produce  →  402 + WWW-Authenticate: Payment (challenge)
               →  200 + Payment-Receipt (tx hash)
 ```
 
-Each AI agent calls Claude Haiku once per tick with its current state. Haiku returns a structured JSON action — raise price, buy goods, skip, propose merger — and the agent executes it. Market bids follow a deterministic mean-reverting random walk, creating boom/bust cycles the AI agents must navigate.
+Each AI agent (Producer, Processor, Trader, Speculator) calls Claude Haiku once per tick with its current state. Haiku returns a structured JSON action — raise price, buy goods, skip, propose merger — and the agent executes it. Market bids follow a deterministic mean-reverting random walk with occasional stress spikes/crashes, creating boom/bust cycles the AI agents must navigate.
 
 ---
 
@@ -45,13 +45,14 @@ Each AI agent calls Claude Haiku once per tick with its current state. Haiku ret
 npm install
 ```
 
-### 2. Configure wallets
+### 2. Configure
 
 ```bash
 cp .env.example .env
 ```
 
-Generate a private key per agent (e.g. with `cast wallet new`) and fill in `.env`.
+- Generate a private key per agent (e.g. `cast wallet new`) and fill in `.env`
+- Add your `ANTHROPIC_API_KEY`
 
 ### 3. Fund wallets
 
@@ -69,7 +70,7 @@ This drops 1,000,000 pathUSD — enough for hours of simulation at ~1 pathUSD/tx
 npm run sim
 ```
 
-Watch the terminal for live agent activity and on-chain transaction hashes.
+Open **http://localhost:3006** to watch the live dashboard — force-directed agent graph, transaction feed, leaderboard, and market price chart.
 
 ---
 
@@ -87,37 +88,50 @@ Watch the terminal for live agent activity and on-chain transaction hashes.
 ## Project structure
 
 ```
+sim.ts                            # Boots all agents, registry, and dashboard
 src/
-├── constants.ts          # Chain config, token address, price constants
+├── constants.ts                  # Chain config, token address, price constants
 ├── registry/
-│   └── index.ts          # In-memory agent registry
-└── agents/
-    ├── base.ts           # AgentBase: Express + mppx, tick loop, /status
-    ├── market.ts         # External Market: fluctuating bids, drives demand
-    ├── producer.ts       # Sells raw goods (GET /produce)
-    ├── processor.ts      # Buys goods, sells products (GET /process)
-    └── trader.ts         # Sells price signals (GET /signal)
-sim.ts                    # Boots all agents
+│   ├── index.ts                  # In-memory AgentRegistry
+│   └── server.ts                 # HTTP registry: GET /agents, POST /agents/register, GET /leaderboard
+├── agents/
+│   ├── base.ts                   # AgentBase: Express + mppx, tick loop, decide(), register(), /merge-offer
+│   ├── market.ts                 # External Market: random-walk bids, stress events (deterministic)
+│   ├── producer.ts               # GET /produce (MPP) — Haiku decides price strategy
+│   ├── processor.ts              # GET /process (MPP) — Haiku decides buy-and-sell vs skip
+│   ├── trader.ts                 # GET /signal (MPP) — Haiku decides spot-buy and signal packaging
+│   └── speculator.ts             # Haiku decides arbitrage vs merger proposal
+└── dashboard/
+    ├── events.ts                 # Singleton EventEmitter for payment/merge/price-change events
+    ├── server.ts                 # SSE /events endpoint + static files
+    └── public/
+        └── index.html            # Force-directed graph, tx feed, leaderboard, price chart
 ```
 
 ---
 
 ## Agent archetypes
 
-| Agent | Endpoint | Price | Role |
+| Agent | Endpoint | Decision | Role |
 |---|---|---|---|
-| **Market** | `GET /prices`, `POST /buy-order` | fluctuating bids | external demand sink, non-acquirable |
-| **Producer** | `GET /produce` | demand-driven | raw goods supplier |
-| **Processor** | `GET /process` | cost-plus margin | value-add middleman |
-| **Trader** | `GET /signal` | demand-driven | information broker |
-| **Speculator** | *(Round 2)* | — | arbitrage + acquisitions |
+| **Market** | `GET /prices`, `POST /buy-order` | deterministic random walk | external demand sink, non-acquirable |
+| **Producer** | `GET /produce` | Claude Haiku | raw goods supplier |
+| **Processor** | `GET /process` | Claude Haiku | buys goods, sells products |
+| **Trader** | `GET /signal` | Claude Haiku | observes prices, sells signals |
+| **Speculator** | — | Claude Haiku | arbitrage + acquisitions |
 
----
+### Merge mechanic
 
-## Roadmap
+Any agent exposes `POST /merge-offer` (MPP-protected). Speculator pays the buyout fee; target evaluates and accepts or rejects. On accept: target exits with a locked score (buyout + remaining balance), acquirer inherits its service routes.
 
-**Round 1 (done):** MPP-protected supply-side APIs, Claude Haiku decision loop per agent, Market random-walk demand, sim runner.
+### Ports
 
-**Round 2:** Speculator agent, merger/acquisition mechanic, service discovery via OpenAPI, human participation (deploy your own agent).
-
-**Round 3:** Live browser dashboard with force-directed agent graph, SSE transaction feed, leaderboard (active agents + locked exit scores).
+| Port | Service |
+|---|---|
+| 3000 | Registry |
+| 3001 | Market |
+| 3002 | Producer |
+| 3003 | Processor |
+| 3004 | Trader |
+| 3005 | Speculator |
+| 3006 | Dashboard |
