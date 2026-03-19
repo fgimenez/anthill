@@ -6,10 +6,9 @@
  * Tempo Moderato faucet, and writes the keys to .env.
  *
  * Usage:
- *   npx tsx scripts/setup-wallets.ts
- *
- * To skip funding (e.g. offline):
- *   SKIP_FUNDING=true npx tsx scripts/setup-wallets.ts
+ *   npx tsx scripts/setup-wallets.ts          # generate fresh keys + fund
+ *   FUND_ONLY=true npx tsx scripts/setup-wallets.ts  # re-fund existing keys
+ *   SKIP_FUNDING=true npx tsx scripts/setup-wallets.ts  # generate keys, no funding
  */
 
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
@@ -22,6 +21,7 @@ const ROOT = join(__dirname, '..')
 const ENV_PATH = join(ROOT, '.env')
 const RPC_URL = process.env.RPC_URL ?? 'https://rpc.moderato.tempo.xyz'
 const SKIP_FUNDING = process.env.SKIP_FUNDING === 'true'
+const FUND_ONLY = process.env.FUND_ONLY === 'true'
 
 const AGENTS = ['MARKET', 'PRODUCER', 'PRODUCER_2', 'PROCESSOR', 'PROCESSOR_2', 'TRADER', 'SPECULATOR'] as const
 
@@ -46,11 +46,25 @@ console.log('🐜 Anthill — wallet setup\n')
 
 const wallets: Record<string, { privateKey: string; address: string }> = {}
 
-for (const agent of AGENTS) {
-  const privateKey = generatePrivateKey()
-  const { address } = privateKeyToAccount(privateKey)
-  wallets[agent] = { privateKey, address }
-  console.log(`${agent.padEnd(12)} ${address}`)
+if (FUND_ONLY) {
+  // Read existing keys from .env, just re-fund them
+  console.log('FUND_ONLY mode — reading existing keys from .env\n')
+  const env = existsSync(ENV_PATH) ? readFileSync(ENV_PATH, 'utf8') : ''
+  for (const agent of AGENTS) {
+    const match = env.match(new RegExp(`^PRIVATE_KEY_${agent}=(.+)$`, 'm'))
+    if (!match) { console.log(`${agent.padEnd(12)} ✗ not found in .env`); continue }
+    const { address } = privateKeyToAccount(match[1].trim() as `0x${string}`)
+    wallets[agent] = { privateKey: match[1].trim(), address }
+    console.log(`${agent.padEnd(12)} ${address}`)
+  }
+} else {
+  // Generate fresh keys
+  for (const agent of AGENTS) {
+    const privateKey = generatePrivateKey()
+    const { address } = privateKeyToAccount(privateKey)
+    wallets[agent] = { privateKey, address }
+    console.log(`${agent.padEnd(12)} ${address}`)
+  }
 }
 
 console.log()
@@ -58,6 +72,7 @@ console.log()
 if (!SKIP_FUNDING) {
   console.log(`Funding via ${RPC_URL}…\n`)
   for (const agent of AGENTS) {
+    if (!wallets[agent]) continue
     const { address } = wallets[agent]
     process.stdout.write(`  funding ${agent.padEnd(12)} ${address} … `)
     try {
@@ -72,20 +87,21 @@ if (!SKIP_FUNDING) {
   console.log('Skipping funding (SKIP_FUNDING=true)\n')
 }
 
-// ── Write .env ────────────────────────────────────────────────────────────────
+if (!FUND_ONLY) {
+  // ── Write .env ──────────────────────────────────────────────────────────────
+  // Read existing .env to preserve non-key entries (ports, RPC_URL, etc.)
+  let existing = existsSync(ENV_PATH) ? readFileSync(ENV_PATH, 'utf8') : ''
 
-// Read existing .env to preserve non-key entries (ports, RPC_URL, etc.)
-let existing = existsSync(ENV_PATH) ? readFileSync(ENV_PATH, 'utf8') : ''
+  // Remove existing PRIVATE_KEY lines so we don't duplicate
+  existing = existing.replace(/^PRIVATE_KEY_\w+=.*\n?/gm, '').trimStart()
 
-// Remove existing PRIVATE_KEY lines so we don't duplicate
-existing = existing.replace(/^PRIVATE_KEY_\w+=.*\n?/gm, '').trimStart()
+  const keyBlock = AGENTS.map(a => `PRIVATE_KEY_${a}=${wallets[a].privateKey}`).join('\n')
+  const envContent = keyBlock + '\n\n' + existing
 
-const keyBlock = AGENTS.map(a => `PRIVATE_KEY_${a}=${wallets[a].privateKey}`).join('\n')
-const envContent = keyBlock + '\n\n' + existing
+  writeFileSync(ENV_PATH, envContent)
+  console.log(`✓ Written to .env\n`)
+}
 
-writeFileSync(ENV_PATH, envContent)
-console.log(`✓ Written to .env`)
-console.log()
 console.log('Next steps:')
-console.log('  1. Add ANTHROPIC_API_KEY to .env')
-console.log('  2. npm run sim')
+if (!FUND_ONLY) console.log('  1. Add ANTHROPIC_API_KEY to .env')
+console.log('  npm run sim')

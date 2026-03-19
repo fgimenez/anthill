@@ -63,19 +63,14 @@ export abstract class AgentBase {
 
     this.mppx = Mppx.create({
       methods: [tempo.charge({
-        rpcUrl: { [CHAIN_ID]: RPC_URL },
-        feePayerUrl: FEE_PAYER_URL,
+        feePayer: FEE_PAYER_URL,   // string → Account.resolve uses as feePayerUrl
         waitForConfirmation: false,
       })],
       secretKey: MPP_SECRET_KEY,
     })
 
     this.mppxClient = MppxClient.create({
-      methods: [tempoClient.charge({
-        account,
-        rpcUrl: { [CHAIN_ID]: RPC_URL },
-        feePayerUrl: FEE_PAYER_URL,
-      })],
+      methods: [tempoClient.charge({ account })],
       polyfill: false,
     })
 
