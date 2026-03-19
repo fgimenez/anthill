@@ -1,5 +1,6 @@
 import { AgentBase, AgentConfig } from './base.js'
 import { INITIAL_GOODS_BID, INITIAL_PRODUCTS_BID, MIN_PRICE } from '../constants.js'
+import { eventBus } from '../dashboard/events.js'
 
 export { nextPrice }
 
@@ -27,6 +28,23 @@ export class MarketAgent extends AgentBase {
   }
 
   protected async tick() {
+    // 10% chance of a stress event (spike or crash)
+    if (Math.random() < 0.10) {
+      const spike = Math.random() < 0.5
+      const target = Math.random() < 0.5 ? 'goods' : 'products'
+      if (target === 'goods') {
+        this.goodsBid = spike ? this.goodsBid * 150n / 100n : this.goodsBid * 60n / 100n
+      } else {
+        this.productsBid = spike ? this.productsBid * 150n / 100n : this.productsBid * 60n / 100n
+      }
+      eventBus.emit('event', {
+        type: 'price-change',
+        from: this.address,
+        price: (target === 'goods' ? this.goodsBid : this.productsBid).toString(),
+        agentType: `market-${target}-${spike ? 'spike' : 'crash'}`,
+        ts: Date.now(),
+      })
+    }
     this.goodsBid = nextPrice(this.goodsBid, INITIAL_GOODS_BID)
     this.productsBid = nextPrice(this.productsBid, INITIAL_PRODUCTS_BID)
     // ensure invariant: productsBid > goodsBid

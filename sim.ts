@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import chalk from 'chalk'
 import { RegistryServer } from './src/registry/server.js'
+import { DashboardServer } from './src/dashboard/server.js'
 import { MarketAgent } from './src/agents/market.js'
 import { ProducerAgent } from './src/agents/producer.js'
 import { ProcessorAgent } from './src/agents/processor.js'
@@ -15,12 +16,18 @@ const required = (name: string) => {
 
 const TICK = Number(process.env.TICK_INTERVAL_MS ?? 10000)
 const REGISTRY_PORT = Number(process.env.PORT_REGISTRY ?? 3000)
+const DASHBOARD_PORT = Number(process.env.PORT_DASHBOARD ?? 3006)
 const REGISTRY_URL = `http://localhost:${REGISTRY_PORT}`
 
-// Start registry HTTP server first
+// Start registry and dashboard servers
 const registryServer = new RegistryServer()
 registryServer.app.listen(REGISTRY_PORT, () => {
   console.log(chalk.cyan(`[REGISTRY ] :${REGISTRY_PORT}`))
+})
+
+const dashboardServer = new DashboardServer()
+dashboardServer.app.listen(DASHBOARD_PORT, () => {
+  console.log(chalk.cyan(`[DASHBOARD] :${DASHBOARD_PORT} → http://localhost:${DASHBOARD_PORT}`))
 })
 
 const market     = new MarketAgent    ({ type: 'market',     port: Number(process.env.PORT_MARKET     ?? 3001), privateKey: required('PRIVATE_KEY_MARKET'),     tickIntervalMs: TICK, registryUrl: REGISTRY_URL })

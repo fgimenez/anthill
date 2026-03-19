@@ -7,6 +7,7 @@ import { Mppx as MppxClient, tempo as tempoClient } from 'mppx/client'
 import { privateKeyToAccount } from 'viem/accounts'
 import { MIN_PRICE, PATHUSD, PATHUSD_DECIMALS, MPP_SECRET_KEY } from '../constants.js'
 import type { AgentType } from '../registry/index.js'
+import { eventBus } from '../dashboard/events.js'
 
 export async function decide<T>(
   systemPrompt: string,
@@ -71,7 +72,17 @@ export abstract class AgentBase {
     this.app.use(express.json())
     this.app.get('/status', (_req, res) => res.json(this.status()))
     this.app.post('/merge-offer', this.charged('Merge offer evaluation'), (req, res) => {
-      const accept = this.evaluateMergeOffer(req.body?.amount ?? '0')
+      const amount = req.body?.amount ?? '0'
+      const accept = this.evaluateMergeOffer(amount)
+      if (accept) {
+        eventBus.emit('event', {
+          type: 'merge',
+          from: this.address,
+          amount,
+          agentType: this.config.type,
+          ts: Date.now(),
+        })
+      }
       res.json({ accept })
     })
     this.setup()
@@ -91,7 +102,27 @@ export abstract class AgentBase {
   }
 
   protected async mppFetch(url: string): Promise<Response> {
-    return this.mppxClient.fetch(url)
+    const res = await this.mppxClient.fetch(url)
+    const receipt = res.headers.get('Payment-Receipt')
+    eventBus.emit('event', {
+      type: 'payment',
+      from: this.address,
+      to: url,
+      txHash: receipt ?? undefined,
+      agentType: this.config.type,
+      ts: Date.now(),
+    })
+    return res
+  }
+
+  protected emitPriceChange() {
+    eventBus.emit('event', {
+      type: 'price-change',
+      from: this.address,
+      price: this.currentPrice.toString(),
+      agentType: this.config.type,
+      ts: Date.now(),
+    })
   }
 
   async register(registryUrl: string, agentUrl: string): Promise<void> {

@@ -48,9 +48,11 @@ export class ProducerAgent extends AgentBase {
     )
     if (action.action === 'raise_price') {
       this.currentPrice = this.currentPrice * 105n / 100n
+      this.emitPriceChange()
     } else if (action.action === 'lower_price') {
       const lowered = this.currentPrice * 95n / 100n
       this.currentPrice = lowered < MIN_PRICE ? MIN_PRICE : lowered
+      this.emitPriceChange()
     }
   }
 }
