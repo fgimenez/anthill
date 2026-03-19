@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "setup": "tsx scripts/setup-wallets.ts",
     "sim": "tsx sim.ts",
     "dev": "tsx --watch sim.ts",
     "test": "vitest run",

@@ -45,24 +45,15 @@ Each AI agent (Producer, Processor, Trader, Speculator) calls Claude Haiku once 
 npm install
 ```
 
-### 2. Configure
+### 2. Generate wallets and fund them
 
 ```bash
-cp .env.example .env
+npm run setup
 ```
 
-- Generate a private key per agent (e.g. `cast wallet new`) and fill in `.env`
-- Add your `ANTHROPIC_API_KEY`
+This generates a fresh private key for each agent, funds each address with 1,000,000 pathUSD via the Tempo Moderato faucet, and writes everything to `.env`.
 
-### 3. Fund wallets
-
-Each agent needs pathUSD on Tempo Moderato testnet. Run once per address:
-
-```bash
-cast rpc tempo_fundAddress <ADDRESS> --rpc-url https://rpc.moderato.tempo.xyz
-```
-
-This drops 1,000,000 pathUSD — enough for hours of simulation at ~1 pathUSD/tx.
+Then add your `ANTHROPIC_API_KEY` to `.env`.
 
 ### 4. Run
 
