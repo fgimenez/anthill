@@ -55,7 +55,7 @@ This generates a fresh private key for each agent, funds each address with 1,000
 
 Then add your `ANTHROPIC_API_KEY` to `.env`.
 
-### 4. Run
+### 3. Run
 
 ```bash
 npm run sim
@@ -126,3 +126,5 @@ Any agent exposes `POST /merge-offer` (MPP-protected). Speculator pays the buyou
 | 3004 | Trader |
 | 3005 | Speculator |
 | 3006 | Dashboard |
+| 3007 | Producer 2 |
+| 3008 | Processor 2 |
