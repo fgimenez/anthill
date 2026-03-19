@@ -173,7 +173,7 @@
       } else if (ev.type === 'merge') {
         div.textContent = `${time} 🤝 merge accepted by ${ev.agentType}`
       } else {
-        div.textContent = `${time} 📈 ${ev.agentType} price → ${(BigInt(ev.price || '0') / 1_000_000n).toString()} pathUSD`
+        div.textContent = `${time} 📈 ${ev.agentType} price → ${(Number(ev.price || '0') / 1_000_000).toFixed(2)} pathUSD`
       }
       list.prepend(div)
       if (list.children.length > 50) list.lastChild.remove()
@@ -217,16 +217,22 @@
             nodes.push({ id: a.id, type: a.type, address: a.address, url: a.url, x: 300 + Math.random()*200, y: 200 + Math.random()*200 })
           }
         })
-        // Market ↔ Producer, Market ↔ Processor as default edges
-        const market = nodes.find(n => n.type === 'market')
-        const producer = nodes.find(n => n.type === 'producer')
-        const processor = nodes.find(n => n.type === 'processor')
-        if (market && producer && !links.find(l => l.source.id === market.id && l.target.id === producer.id)) {
-          links.push({ source: market.id, target: producer.id })
+        // Wire up the economic graph edges
+        const market     = nodes.find(n => n.type === 'market')
+        const producer   = nodes.find(n => n.type === 'producer')
+        const processor  = nodes.find(n => n.type === 'processor')
+        const trader     = nodes.find(n => n.type === 'trader')
+        const speculator = nodes.find(n => n.type === 'speculator')
+        const addLink = (a, b) => {
+          if (a && b && !links.find(l => l.source.id === a.id && l.target.id === b.id))
+            links.push({ source: a.id, target: b.id })
         }
-        if (market && processor && !links.find(l => l.source.id === market.id && l.target.id === processor.id)) {
-          links.push({ source: market.id, target: processor.id })
-        }
+        addLink(market, producer)       // market buys goods
+        addLink(market, processor)      // market buys products
+        addLink(processor, producer)    // processor buys goods
+        addLink(trader, producer)       // trader spot-buys goods
+        addLink(trader, processor)      // trader spot-buys products
+        addLink(speculator, trader)     // speculator buys signals
         if (nodes.length > 0 && !simulation) {
           const rect = document.getElementById('graph').getBoundingClientRect()
           initSimulation(rect.width, rect.height)
