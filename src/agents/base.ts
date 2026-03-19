@@ -114,17 +114,22 @@ export abstract class AgentBase {
   }
 
   protected async mppFetch(url: string, init?: RequestInit): Promise<Response> {
-    const res = await this.mppxClient.fetch(url, init)
-    const receipt = res.headers.get('Payment-Receipt')
-    eventBus.emit('event', {
-      type: 'payment',
-      from: this.address,
-      to: url,
-      txHash: receipt ?? undefined,
-      agentType: this.config.type,
-      ts: Date.now(),
-    })
-    return res
+    try {
+      const res = await this.mppxClient.fetch(url, init)
+      const receipt = res.headers.get('Payment-Receipt')
+      eventBus.emit('event', {
+        type: 'payment',
+        from: this.address,
+        to: url,
+        txHash: receipt ?? undefined,
+        agentType: this.config.type,
+        ts: Date.now(),
+      })
+      return res
+    } catch (e) {
+      console.warn(`[mppFetch] ${this.config.type} → ${url.replace(/.*localhost:\d+/, '')} : ${(e as Error).message?.slice(0, 120)}`)
+      throw e
+    }
   }
 
   protected emitPriceChange() {
