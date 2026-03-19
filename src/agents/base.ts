@@ -16,17 +16,20 @@ export async function decide<T>(
   mockDefault: T,
 ): Promise<T> {
   if (process.env.MOCK_LLM === 'true') return mockDefault
-  const client = new Anthropic()
-  const msg = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 256,
-    system: systemPrompt + '\n\nRespond ONLY with valid JSON matching the required schema. No prose.',
-    messages: [{ role: 'user', content: JSON.stringify(context) }],
-  })
-  const text = (msg.content[0] as { type: 'text'; text: string }).text
   try {
-    return schema.parse(JSON.parse(text))
-  } catch {
+    const client = new Anthropic()
+    const msg = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 256,
+      system: systemPrompt + '\n\nRespond ONLY with valid JSON matching the required schema. No prose.',
+      messages: [{ role: 'user', content: JSON.stringify(context) }],
+    })
+    const text = (msg.content[0] as { type: 'text'; text: string }).text
+    const match = text.match(/\{[\s\S]*\}/)
+    if (!match) throw new Error(`no JSON object in response: ${text.slice(0, 80)}`)
+    return schema.parse(JSON.parse(match[0]))
+  } catch (e) {
+    console.warn(`[decide] fallback to default — ${(e as Error).message?.slice(0, 100)}`)
     return mockDefault
   }
 }
