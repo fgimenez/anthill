@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { AgentBase, AgentConfig, decide } from './base.js'
+import { getRandomStrategy } from './prompts.js'
 
 export const SpeculatorActionSchema = z.object({
   action: z.enum(['arbitrage', 'propose_merger', 'skip']),
@@ -8,21 +9,12 @@ export const SpeculatorActionSchema = z.object({
 })
 type SpeculatorAction = z.infer<typeof SpeculatorActionSchema>
 
-const SPECULATOR_PROMPT = `You are a Speculator agent in an emergent economy simulation.
-You buy price signals from Traders, spot arbitrage gaps, and acquire weakened agents.
-Your goal is to maximize pathUSD earnings through arbitrage and strategic acquisitions.
-
-Each tick you receive market signals and agent statuses. Respond with a JSON action.
-Available actions:
-- "arbitrage": buy goods/products cheap and immediately resell to Market at a profit
-- "propose_merger": propose acquiring a weakened agent (provide target_url)
-- "skip": do nothing this tick
-
-Respond ONLY with JSON: {"action": "<action>", "target_url": "<optional>", "reasoning": "<brief reason>"}`
-
 export class SpeculatorAgent extends AgentBase {
+  private readonly strategy = getRandomStrategy('speculator')
+
   constructor(config: AgentConfig) {
     super(config, 0n)
+    console.log(`[speculator] strategy: ${this.strategy.name}`)
   }
 
   protected setup() {
@@ -34,7 +26,7 @@ export class SpeculatorAgent extends AgentBase {
     const agents = await this.fetchAgents()
 
     const action = await decide<SpeculatorAction>(
-      SPECULATOR_PROMPT,
+      this.strategy.prompt,
       { signal, agents, currentBalance: this.txCount },
       SpeculatorActionSchema,
       { action: 'skip' },

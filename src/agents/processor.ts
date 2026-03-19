@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { AgentBase, AgentConfig, decide } from './base.js'
+import { getRandomStrategy } from './prompts.js'
 import { INITIAL_PRODUCTS_PRICE, MIN_PRICE } from '../constants.js'
 
 export { isMarginPositive }
@@ -10,30 +11,18 @@ export const ProcessorActionSchema = z.object({
 })
 type ProcessorAction = z.infer<typeof ProcessorActionSchema>
 
-const PROCESSOR_PROMPT = `You are a Processor agent in an emergent economy simulation.
-You buy raw goods from Producers and sell processed products via GET /process.
-Your goal is to maximize pathUSD earnings. You only profit when: productsBid - goodsPrice > threshold.
-
-Each tick you receive your current state and must respond with a JSON action.
-Available actions:
-- "buy_goods_and_sell": buy goods from a Producer, sell products to Market (only if margin is positive)
-- "skip": do nothing this tick (when margin is negative or uncertain)
-- "raise_price": increase your product price by ~5%
-- "lower_price": decrease your product price by ~5%
-
-Respond ONLY with JSON: {"action": "<action>", "reasoning": "<brief reason>"}`
-
 export class ProcessorAgent extends AgentBase {
   private marketUrl?: string
+  private readonly strategy = getRandomStrategy('processor')
 
   protected evaluateMergeOffer(amount: string): boolean {
-    // Accept only premium offers (> 3× current price)
     return BigInt(amount) > this.currentPrice * 3n
   }
 
   constructor(config: AgentConfig, marketUrl?: string) {
     super(config, INITIAL_PRODUCTS_PRICE)
     this.marketUrl = marketUrl
+    console.log(`[processor] strategy: ${this.strategy.name}`)
   }
 
   protected setup() {
@@ -57,7 +46,7 @@ export class ProcessorAgent extends AgentBase {
     }
 
     const action = await decide<ProcessorAction>(
-      PROCESSOR_PROMPT,
+      this.strategy.prompt,
       {
         currentPrice: this.currentPrice.toString(),
         requestsThisTick: this.requestsThisTick,

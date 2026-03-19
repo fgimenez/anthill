@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { AgentBase, AgentConfig, decide } from './base.js'
+import { getRandomStrategy } from './prompts.js'
 import { INITIAL_SIGNAL_PRICE, MIN_PRICE } from '../constants.js'
 
 export const TraderActionSchema = z.object({
@@ -7,19 +8,6 @@ export const TraderActionSchema = z.object({
   reasoning: z.string().optional(),
 })
 type TraderAction = z.infer<typeof TraderActionSchema>
-
-const TRADER_PROMPT = `You are a Trader agent in an emergent economy simulation.
-You observe prices by spot-buying from Producers and Processors, then sell price signals via GET /signal.
-Your goal is to maximize pathUSD earnings by selling timely, accurate market intelligence.
-
-Each tick you receive your current state and must respond with a JSON action.
-Available actions:
-- "buy_spot_and_signal": buy spot from available agents to update your signal (costs pathUSD, earns from signal sales)
-- "skip": do nothing this tick (when you lack capital or demand is low)
-- "raise_price": increase your signal price by ~5%
-- "lower_price": decrease your signal price by ~5%
-
-Respond ONLY with JSON: {"action": "<action>", "reasoning": "<brief reason>"}`
 
 interface PriceSignal {
   goodsPrice: string
@@ -30,9 +18,11 @@ interface PriceSignal {
 
 export class TraderAgent extends AgentBase {
   private latestSignal: PriceSignal | null = null
+  private readonly strategy = getRandomStrategy('trader')
 
   constructor(config: AgentConfig) {
     super(config, INITIAL_SIGNAL_PRICE)
+    console.log(`[trader] strategy: ${this.strategy.name}`)
   }
 
   protected setup() {
@@ -45,7 +35,7 @@ export class TraderAgent extends AgentBase {
 
   protected async tick() {
     const action = await decide<TraderAction>(
-      TRADER_PROMPT,
+      this.strategy.prompt,
       {
         currentPrice: this.currentPrice.toString(),
         requestsThisTick: this.requestsThisTick,

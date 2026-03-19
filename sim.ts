@@ -30,33 +30,35 @@ dashboardServer.app.listen(DASHBOARD_PORT, () => {
   console.log(chalk.cyan(`[DASHBOARD] :${DASHBOARD_PORT} → http://localhost:${DASHBOARD_PORT}`))
 })
 
-const market     = new MarketAgent    ({ type: 'market',     port: Number(process.env.PORT_MARKET     ?? 3001), privateKey: required('PRIVATE_KEY_MARKET'),     tickIntervalMs: TICK, registryUrl: REGISTRY_URL })
-const producer   = new ProducerAgent  ({ type: 'producer',   port: Number(process.env.PORT_PRODUCER   ?? 3002), privateKey: required('PRIVATE_KEY_PRODUCER'),   tickIntervalMs: TICK, registryUrl: REGISTRY_URL })
-const processor  = new ProcessorAgent ({ type: 'processor',  port: Number(process.env.PORT_PROCESSOR  ?? 3003), privateKey: required('PRIVATE_KEY_PROCESSOR'),  tickIntervalMs: TICK, registryUrl: REGISTRY_URL }, `http://localhost:${process.env.PORT_MARKET ?? 3001}`)
-const trader     = new TraderAgent    ({ type: 'trader',     port: Number(process.env.PORT_TRADER     ?? 3004), privateKey: required('PRIVATE_KEY_TRADER'),     tickIntervalMs: TICK, registryUrl: REGISTRY_URL })
-const speculator = new SpeculatorAgent({ type: 'speculator', port: Number(process.env.PORT_SPECULATOR ?? 3005), privateKey: required('PRIVATE_KEY_SPECULATOR'), tickIntervalMs: TICK, registryUrl: REGISTRY_URL })
+const MARKET_URL = `http://localhost:${process.env.PORT_MARKET ?? 3001}`
 
-const label: Record<string, string> = {
-  market:     chalk.yellow ('[MARKET   ]'),
-  producer:   chalk.green  ('[PRODUCER ]'),
-  processor:  chalk.blue   ('[PROCESSOR]'),
-  trader:     chalk.magenta('[TRADER   ]'),
-  speculator: chalk.red    ('[SPECULATOR]'),
+const market      = new MarketAgent    ({ type: 'market',     port: Number(process.env.PORT_MARKET      ?? 3001), privateKey: required('PRIVATE_KEY_MARKET'),      tickIntervalMs: TICK, registryUrl: REGISTRY_URL })
+const producer    = new ProducerAgent  ({ type: 'producer',   port: Number(process.env.PORT_PRODUCER    ?? 3002), privateKey: required('PRIVATE_KEY_PRODUCER'),    tickIntervalMs: TICK, registryUrl: REGISTRY_URL })
+const producer2   = new ProducerAgent  ({ type: 'producer',   port: Number(process.env.PORT_PRODUCER_2  ?? 3007), privateKey: required('PRIVATE_KEY_PRODUCER_2'),  tickIntervalMs: TICK, registryUrl: REGISTRY_URL })
+const processor   = new ProcessorAgent ({ type: 'processor',  port: Number(process.env.PORT_PROCESSOR   ?? 3003), privateKey: required('PRIVATE_KEY_PROCESSOR'),   tickIntervalMs: TICK, registryUrl: REGISTRY_URL }, MARKET_URL)
+const processor2  = new ProcessorAgent ({ type: 'processor',  port: Number(process.env.PORT_PROCESSOR_2 ?? 3008), privateKey: required('PRIVATE_KEY_PROCESSOR_2'),  tickIntervalMs: TICK, registryUrl: REGISTRY_URL }, MARKET_URL)
+const trader      = new TraderAgent    ({ type: 'trader',     port: Number(process.env.PORT_TRADER      ?? 3004), privateKey: required('PRIVATE_KEY_TRADER'),      tickIntervalMs: TICK, registryUrl: REGISTRY_URL })
+const speculator  = new SpeculatorAgent({ type: 'speculator', port: Number(process.env.PORT_SPECULATOR  ?? 3005), privateKey: required('PRIVATE_KEY_SPECULATOR'),  tickIntervalMs: TICK, registryUrl: REGISTRY_URL })
+
+const label: Record<string, (s: string) => string> = {
+  market:     s => chalk.yellow (`[MARKET   ] ${s}`),
+  producer:   s => chalk.green  (`[PRODUCER ] ${s}`),
+  processor:  s => chalk.blue   (`[PROCESSOR] ${s}`),
+  trader:     s => chalk.magenta(`[TRADER   ] ${s}`),
+  speculator: s => chalk.red    (`[SPECULATOR] ${s}`),
 }
 
 console.log(chalk.bold('\n🐜 Anthill — starting simulation\n'))
 
-for (const agent of [market, producer, processor, trader, speculator]) {
+const allAgents = [market, producer, producer2, processor, processor2, trader, speculator]
+for (const agent of allAgents) {
   const s = agent.status()
-  console.log(`${label[s.type]} ${chalk.dim(s.address)}`)
+  const fn = label[s.type] ?? (x => x)
+  console.log(fn(chalk.dim(s.address)))
 }
 console.log()
 
-market.start()
-producer.start()
-processor.start()
-trader.start()
-speculator.start()
+for (const agent of allAgents) agent.start()
 
 console.log(chalk.bold('\nAll agents started. Ctrl+C to stop.\n'))
 console.log(chalk.dim('Fund wallets with:'))

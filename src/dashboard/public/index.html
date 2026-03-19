@@ -79,6 +79,7 @@
     let eventCount = 0
     const priceHistory = { goods: [], products: [] }
     const MAX_HISTORY = 60
+    const nodeStats = {}   // id → { txCount, balance }
 
     const nodeColors = {
       market:     '#f59e0b',
@@ -115,8 +116,14 @@
         .attr('transform', d => `translate(${d.x},${d.y})`)
     }
 
+    function nodeRadius(d) {
+      const stats = nodeStats[d.id]
+      if (!stats) return 18
+      return Math.max(12, Math.min(44, 12 + Math.log1p(stats.txCount) * 6))
+    }
+
     function renderGraph() {
-      const linkSel = linkLayer.selectAll('.link').data(links, d => `${d.source.id}-${d.target.id}`)
+      const linkSel = linkLayer.selectAll('.link').data(links, d => `${d.source?.id ?? d.source}-${d.target?.id ?? d.target}`)
       linkSel.enter().append('line').attr('class', 'link')
       linkSel.exit().remove()
 
@@ -126,8 +133,10 @@
           .on('start', (event, d) => { if (!event.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y })
           .on('drag', (event, d) => { d.fx = event.x; d.fy = event.y })
           .on('end', (event, d) => { if (!event.active) simulation.alphaTarget(0); d.fx = null; d.fy = null }))
-      enter.append('circle').attr('r', 24).attr('fill', d => nodeColors[d.type] ?? '#888').attr('stroke', '#fff').attr('stroke-opacity', 0.3)
+      enter.append('circle').attr('fill', d => nodeColors[d.type] ?? '#888').attr('stroke', '#fff').attr('stroke-opacity', 0.3)
       enter.append('text').attr('text-anchor', 'middle').attr('dy', 4).text(d => d.type.slice(0, 4).toUpperCase())
+      // Update radius on every render (covers both new and existing nodes)
+      nodeLayer.selectAll('.node circle').attr('r', d => nodeRadius(d))
       nodeSel.exit().remove()
 
       simulation.nodes(nodes)
@@ -135,11 +144,19 @@
       simulation.alpha(0.3).restart()
     }
 
-    function flashLink(fromAddr, toAddr) {
+    function addPersistentLink(fromNode, toNode) {
+      const key = `${fromNode.id}-${toNode.id}`
+      if (fromNode.id === toNode.id) return
+      if (links.find(l => (l.source?.id ?? l.source) === fromNode.id && (l.target?.id ?? l.target) === toNode.id)) return
+      links.push({ source: fromNode.id, target: toNode.id })
+      renderGraph()
+    }
+
+    function flashLink(fromAddr, toUrl) {
       const fromNode = nodes.find(n => n.address === fromAddr)
-      const toNode = nodes.find(n => n.address === toAddr || n.url === toAddr || (toAddr && toAddr.includes(n.type)))
+      const toNode = nodes.find(n => toUrl && toUrl.startsWith(n.url))
       if (!fromNode || !toNode) return
-      const link = { source: fromNode.id, target: toNode.id, _flash: true }
+      addPersistentLink(fromNode, toNode)
       const line = linkLayer.append('line')
         .attr('class', 'link active')
         .attr('x1', fromNode.x).attr('y1', fromNode.y)
@@ -153,10 +170,17 @@
         const agents = await (await fetch(`${REGISTRY_URL}/agents`)).json()
         const rows = document.getElementById('lb-rows')
         rows.innerHTML = ''
+        agents.sort((a, b) => {
+          const txA = nodeStats[a.id]?.txCount ?? 0
+          const txB = nodeStats[b.id]?.txCount ?? 0
+          return txB - txA
+        })
         agents.forEach(a => {
+          const stats = nodeStats[a.id]
+          const txCount = stats?.txCount ?? 0
           const div = document.createElement('div')
           div.className = 'lb-row' + (a.active ? '' : ' exited')
-          div.innerHTML = `<span class="name">${a.type}</span><span class="score">${a.exitScore ? a.exitScore + ' ✓' : (a.active ? 'active' : 'bust')}</span>`
+          div.innerHTML = `<span class="name">${a.type}</span><span class="score">${a.exitScore ? a.exitScore + ' ✓' : txCount + ' tx'}</span>`
           rows.appendChild(div)
         })
       } catch {}
@@ -217,22 +241,6 @@
             nodes.push({ id: a.id, type: a.type, address: a.address, url: a.url, x: 300 + Math.random()*200, y: 200 + Math.random()*200 })
           }
         })
-        // Wire up the economic graph edges
-        const market     = nodes.find(n => n.type === 'market')
-        const producer   = nodes.find(n => n.type === 'producer')
-        const processor  = nodes.find(n => n.type === 'processor')
-        const trader     = nodes.find(n => n.type === 'trader')
-        const speculator = nodes.find(n => n.type === 'speculator')
-        const addLink = (a, b) => {
-          if (a && b && !links.find(l => l.source.id === a.id && l.target.id === b.id))
-            links.push({ source: a.id, target: b.id })
-        }
-        addLink(market, producer)       // market buys goods
-        addLink(market, processor)      // market buys products
-        addLink(processor, producer)    // processor buys goods
-        addLink(trader, producer)       // trader spot-buys goods
-        addLink(trader, processor)      // trader spot-buys products
-        addLink(speculator, trader)     // speculator buys signals
         if (nodes.length > 0 && !simulation) {
           const rect = document.getElementById('graph').getBoundingClientRect()
           initSimulation(rect.width, rect.height)
@@ -240,6 +248,19 @@
         renderGraph()
         refreshLeaderboard()
       } catch {}
+    }
+
+    // ── Agent Status Polling ───────────────────────────────────────────────────
+    async function pollAgentStatuses() {
+      for (const node of nodes) {
+        try {
+          const status = await (await fetch(`${node.url}/status`)).json()
+          nodeStats[node.id] = { txCount: status.txCount ?? 0 }
+        } catch {}
+      }
+      // Update node sizes
+      nodeLayer.selectAll('.node circle').attr('r', d => nodeRadius(d))
+      refreshLeaderboard()
     }
 
     // ── Market Prices Polling ──────────────────────────────────────────────────
@@ -273,6 +294,7 @@
     // ── Boot ───────────────────────────────────────────────────────────────────
     pollRegistry()
     setInterval(pollRegistry, 5000)
+    setInterval(pollAgentStatuses, 4000)
     setInterval(pollMarketPrices, 3000)
     window.addEventListener('resize', drawPriceChart)
   </script>

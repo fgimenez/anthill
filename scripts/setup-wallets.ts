@@ -23,7 +23,7 @@ const ENV_PATH = join(ROOT, '.env')
 const RPC_URL = process.env.RPC_URL ?? 'https://rpc.moderato.tempo.xyz'
 const SKIP_FUNDING = process.env.SKIP_FUNDING === 'true'
 
-const AGENTS = ['MARKET', 'PRODUCER', 'PROCESSOR', 'TRADER', 'SPECULATOR'] as const
+const AGENTS = ['MARKET', 'PRODUCER', 'PRODUCER_2', 'PROCESSOR', 'PROCESSOR_2', 'TRADER', 'SPECULATOR'] as const
 
 async function fundAddress(address: string): Promise<void> {
   const res = await fetch(RPC_URL, {

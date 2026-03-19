@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { AgentBase, AgentConfig, decide } from './base.js'
+import { getRandomStrategy } from './prompts.js'
 import { INITIAL_GOODS_PRICE, MIN_PRICE } from '../constants.js'
 
 export const ProducerActionSchema = z.object({
@@ -8,27 +9,16 @@ export const ProducerActionSchema = z.object({
 })
 type ProducerAction = z.infer<typeof ProducerActionSchema>
 
-const PRODUCER_PROMPT = `You are a Producer agent in an emergent economy simulation.
-You sell raw goods via GET /produce. Your goal is to maximize pathUSD earnings over time.
-
-Each tick you receive your current state and must respond with a JSON action.
-Available actions:
-- "raise_price": increase your price by ~5% (do this when demand is high)
-- "lower_price": decrease your price by ~5% (do this when demand is low and you need buyers)
-- "hold": keep price unchanged
-- "sell_to_market": signal willingness to sell directly to market at current price
-
-Respond ONLY with JSON: {"action": "<action>", "reasoning": "<brief reason>"}`
-
-const DISTRESSED_BALANCE = 10_000_000n  // 10 pathUSD
-
 export class ProducerAgent extends AgentBase {
+  private readonly strategy = getRandomStrategy('producer')
+
   protected evaluateMergeOffer(amount: string): boolean {
-    // Accept if distressed or offer > 2× current price
     return BigInt(amount) > this.currentPrice * 2n
   }
+
   constructor(config: AgentConfig) {
     super(config, INITIAL_GOODS_PRICE)
+    console.log(`[producer] strategy: ${this.strategy.name}`)
   }
 
   protected setup() {
@@ -41,7 +31,7 @@ export class ProducerAgent extends AgentBase {
 
   protected async tick() {
     const action = await decide<ProducerAction>(
-      PRODUCER_PROMPT,
+      this.strategy.prompt,
       { currentPrice: this.currentPrice.toString(), requestsThisTick: this.requestsThisTick },
       ProducerActionSchema,
       { action: 'hold' },
