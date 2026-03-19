@@ -5,7 +5,7 @@ import { Mppx } from 'mppx/express'
 import { tempo } from 'mppx/server'
 import { Mppx as MppxClient, tempo as tempoClient } from 'mppx/client'
 import { privateKeyToAccount } from 'viem/accounts'
-import { MIN_PRICE, PATHUSD, PATHUSD_DECIMALS, MPP_SECRET_KEY, RPC_URL, FEE_PAYER_URL, CHAIN_ID } from '../constants.js'
+import { MIN_PRICE, PATHUSD, PATHUSD_DECIMALS, MPP_SECRET_KEY } from '../constants.js'
 import type { AgentType } from '../registry/index.js'
 import { eventBus } from '../dashboard/events.js'
 
@@ -63,7 +63,6 @@ export abstract class AgentBase {
 
     this.mppx = Mppx.create({
       methods: [tempo.charge({
-        feePayer: FEE_PAYER_URL,   // string → Account.resolve uses as feePayerUrl
         waitForConfirmation: false,
       })],
       secretKey: MPP_SECRET_KEY,
