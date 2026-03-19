@@ -37,6 +37,7 @@ export interface AgentConfig {
   port: number
   privateKey: `0x${string}`
   tickIntervalMs: number
+  registryUrl?: string
 }
 
 export abstract class AgentBase {
@@ -69,6 +70,10 @@ export abstract class AgentBase {
     this.app = express()
     this.app.use(express.json())
     this.app.get('/status', (_req, res) => res.json(this.status()))
+    this.app.post('/merge-offer', this.charged('Merge offer evaluation'), (req, res) => {
+      const accept = this.evaluateMergeOffer(req.body?.amount ?? '0')
+      res.json({ accept })
+    })
     this.setup()
   }
 
@@ -89,8 +94,25 @@ export abstract class AgentBase {
     return this.mppxClient.fetch(url)
   }
 
+  async register(registryUrl: string, agentUrl: string): Promise<void> {
+    await fetch(`${registryUrl}/agents/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: `${this.config.type}-${this.address}`,
+        type: this.config.type,
+        url: agentUrl,
+        address: this.address,
+      }),
+    })
+  }
+
   protected abstract setup(): void
   protected abstract tick(): Promise<void>
+
+  protected evaluateMergeOffer(_amount: string): boolean {
+    return false  // default: reject; subclasses override
+  }
 
   status() {
     return {
@@ -106,6 +128,10 @@ export abstract class AgentBase {
   start() {
     this.app.listen(this.config.port, () => {
       console.log(`[${this.config.type}] :${this.config.port} wallet:${this.address}`)
+      if (this.config.registryUrl) {
+        this.register(this.config.registryUrl, `http://localhost:${this.config.port}`)
+          .catch(() => { /* non-fatal */ })
+      }
     })
     setInterval(async () => {
       try { await this.tick() } catch (e) { /* swallow tick errors */ }

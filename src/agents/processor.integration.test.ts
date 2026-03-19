@@ -22,4 +22,26 @@ describe('ProcessorAgent', () => {
     const agent = new ProcessorAgent(config)
     await expect((agent as unknown as { tick(): Promise<void> }).tick()).resolves.not.toThrow()
   })
+
+  it('tick() with buy_goods_and_sell calls mppFetch on producer URL from registry', async () => {
+    vi.stubEnv('MOCK_LLM', 'true')
+    const { RegistryServer } = await import('../registry/server.js')
+    const registry = new RegistryServer()
+    const srv = registry.app.listen(0)
+    const port = (srv.address() as { port: number }).port
+    await fetch(`http://localhost:${port}/agents/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: 'p1', type: 'producer', url: 'http://producer:3001', address: '0xaaa' }),
+    })
+    const agent = new ProcessorAgent(
+      { ...config, registryUrl: `http://localhost:${port}` },
+      `http://localhost:${port}`,
+    )
+    const mppFetchSpy = vi.spyOn(agent as unknown as { mppFetch: (u: string) => Promise<Response> }, 'mppFetch')
+      .mockResolvedValue(new Response(JSON.stringify({ goods: 1 })))
+    await (agent as unknown as { tickWithAction(a: string): Promise<void> }).tickWithAction('buy_goods_and_sell')
+    expect(mppFetchSpy).toHaveBeenCalledWith('http://producer:3001/produce')
+    srv.close()
+  })
 })

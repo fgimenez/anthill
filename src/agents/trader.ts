@@ -58,12 +58,47 @@ export class TraderAgent extends AgentBase {
       { action: 'skip' },
     )
 
-    if (action.action === 'raise_price') {
+    await this.tickWithAction(action.action)
+  }
+
+  async tickWithAction(action: string): Promise<void> {
+    if (action === 'raise_price') {
       this.currentPrice = this.currentPrice * 105n / 100n
-    } else if (action.action === 'lower_price') {
+    } else if (action === 'lower_price') {
       const lowered = this.currentPrice * 95n / 100n
       this.currentPrice = lowered < MIN_PRICE ? MIN_PRICE : lowered
+    } else if (action === 'buy_spot_and_signal') {
+      await this.buySpotAndBuildSignal()
     }
-    // buy_spot_and_signal: actual MPP spot buys happen in Round 2 with registry
+  }
+
+  private async buySpotAndBuildSignal(): Promise<void> {
+    const registryUrl = this.config.registryUrl
+    if (!registryUrl) return
+    try {
+      const agentsRes = await fetch(`${registryUrl}/agents`)
+      const agents = await agentsRes.json() as Array<{ type: string; url: string }>
+      const producer = agents.find(a => a.type === 'producer')
+      const processor = agents.find(a => a.type === 'processor')
+
+      let goodsPrice = '0'
+      let productsPrice = '0'
+
+      if (producer) {
+        const res = await this.mppFetch(`${producer.url}/produce`)
+        const body = await res.json() as { price?: string }
+        goodsPrice = body.price ?? '0'
+        this.txCount++
+      }
+      if (processor) {
+        const res = await this.mppFetch(`${processor.url}/process`)
+        const body = await res.json() as { price?: string }
+        productsPrice = body.price ?? '0'
+        this.txCount++
+      }
+
+      const spread = (BigInt(productsPrice) - BigInt(goodsPrice)).toString()
+      this.latestSignal = { goodsPrice, productsPrice, spread, observedAt: new Date().toISOString() }
+    } catch { /* non-fatal */ }
   }
 }

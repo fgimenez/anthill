@@ -22,4 +22,26 @@ describe('TraderAgent', () => {
     const agent = new TraderAgent(config)
     await expect((agent as unknown as { tick(): Promise<void> }).tick()).resolves.not.toThrow()
   })
+
+  it('tick() with buy_spot_and_signal calls mppFetch on producer and processor from registry', async () => {
+    vi.stubEnv('MOCK_LLM', 'true')
+    const { RegistryServer } = await import('../registry/server.js')
+    const registry = new RegistryServer()
+    const srv = registry.app.listen(0)
+    const port = (srv.address() as { port: number }).port
+    for (const [id, type, url] of [['p1', 'producer', 'http://producer:3001'], ['p2', 'processor', 'http://processor:3002']]) {
+      await fetch(`http://localhost:${port}/agents/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, type, url, address: '0xaaa' }),
+      })
+    }
+    const agent = new TraderAgent({ ...config, registryUrl: `http://localhost:${port}` })
+    const mppFetchSpy = vi.spyOn(agent as unknown as { mppFetch: (u: string) => Promise<Response> }, 'mppFetch')
+      .mockResolvedValue(new Response(JSON.stringify({ goods: 1, price: '1000000' })))
+    await (agent as unknown as { tickWithAction(a: string): Promise<void> }).tickWithAction('buy_spot_and_signal')
+    expect(mppFetchSpy).toHaveBeenCalledWith('http://producer:3001/produce')
+    expect(mppFetchSpy).toHaveBeenCalledWith('http://processor:3002/process')
+    srv.close()
+  })
 })

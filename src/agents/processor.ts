@@ -26,6 +26,11 @@ Respond ONLY with JSON: {"action": "<action>", "reasoning": "<brief reason>"}`
 export class ProcessorAgent extends AgentBase {
   private marketUrl?: string
 
+  protected evaluateMergeOffer(amount: string): boolean {
+    // Accept only premium offers (> 3× current price)
+    return BigInt(amount) > this.currentPrice * 3n
+  }
+
   constructor(config: AgentConfig, marketUrl?: string) {
     super(config, INITIAL_PRODUCTS_PRICE)
     this.marketUrl = marketUrl
@@ -64,13 +69,35 @@ export class ProcessorAgent extends AgentBase {
       { action: 'skip' },
     )
 
-    if (action.action === 'raise_price') {
+    await this.tickWithAction(action.action)
+  }
+
+  async tickWithAction(action: string): Promise<void> {
+    if (action === 'raise_price') {
       this.currentPrice = this.currentPrice * 105n / 100n
-    } else if (action.action === 'lower_price') {
+    } else if (action === 'lower_price') {
       const lowered = this.currentPrice * 95n / 100n
       this.currentPrice = lowered < MIN_PRICE ? MIN_PRICE : lowered
+    } else if (action === 'buy_goods_and_sell') {
+      await this.buyGoodsAndSell()
     }
-    // buy_goods_and_sell: actual MPP calls happen in Round 2 with registry
+  }
+
+  private async buyGoodsAndSell(): Promise<void> {
+    const registryUrl = this.config.registryUrl
+    if (!registryUrl) return
+    try {
+      const agentsRes = await fetch(`${registryUrl}/agents`)
+      const agents = await agentsRes.json() as Array<{ type: string; url: string }>
+      const producer = agents.find(a => a.type === 'producer')
+      if (!producer) return
+      await this.mppFetch(`${producer.url}/produce`)
+      this.txCount++
+      if (this.marketUrl) {
+        await this.mppFetch(`${this.marketUrl}/buy-order`)
+        this.txCount++
+      }
+    } catch { /* non-fatal */ }
   }
 }
 

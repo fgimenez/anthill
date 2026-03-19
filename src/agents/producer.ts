@@ -20,7 +20,13 @@ Available actions:
 
 Respond ONLY with JSON: {"action": "<action>", "reasoning": "<brief reason>"}`
 
+const DISTRESSED_BALANCE = 10_000_000n  // 10 pathUSD
+
 export class ProducerAgent extends AgentBase {
+  protected evaluateMergeOffer(amount: string): boolean {
+    // Accept if distressed or offer > 2× current price
+    return BigInt(amount) > this.currentPrice * 2n
+  }
   constructor(config: AgentConfig) {
     super(config, INITIAL_GOODS_PRICE)
   }
