@@ -49,6 +49,14 @@ export class MarketAgent extends AgentBase {
     this.productsBid = nextPrice(this.productsBid, INITIAL_PRODUCTS_BID)
     // ensure invariant: productsBid > goodsBid
     if (this.productsBid <= this.goodsBid) this.productsBid = this.goodsBid + INITIAL_GOODS_BID / 2n
+
+    eventBus.emit('event', {
+      type: 'price-change',
+      from: this.address,
+      agentType: 'market',
+      price: this.goodsBid.toString(),
+      ts: Date.now(),
+    })
   }
 }
 
