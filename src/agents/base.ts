@@ -63,6 +63,7 @@ export abstract class AgentBase {
 
     this.mppx = Mppx.create({
       methods: [tempo.charge({
+        testnet: true,
         waitForConfirmation: false,
       })],
       secretKey: MPP_SECRET_KEY,
