@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { AgentBase, AgentConfig, decide } from './base.js'
 import { getRandomStrategy } from './prompts.js'
+import { INITIAL_GOODS_PRICE } from '../constants.js'
 
 export const SpeculatorActionSchema = z.object({
   action: z.enum(['arbitrage', 'propose_merger', 'skip']),
@@ -73,7 +74,17 @@ export class SpeculatorAgent extends AgentBase {
 
   private async proposeMerger(targetUrl: string): Promise<void> {
     try {
-      await this.mppFetch(`${targetUrl}/merge-offer`)
+      // Fetch target's current price to make a realistic offer (3× current price)
+      let offerAmount = INITIAL_GOODS_PRICE * 3n
+      try {
+        const status = await (await fetch(`${targetUrl}/status`)).json() as { currentPrice?: string }
+        if (status.currentPrice) offerAmount = BigInt(status.currentPrice) * 3n
+      } catch { /* use default */ }
+      await this.mppFetch(`${targetUrl}/merge-offer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: offerAmount.toString() }),
+      })
       this.txCount++
     } catch { /* non-fatal */ }
   }

@@ -5,7 +5,7 @@ import { Mppx } from 'mppx/express'
 import { tempo } from 'mppx/server'
 import { Mppx as MppxClient, tempo as tempoClient } from 'mppx/client'
 import { privateKeyToAccount } from 'viem/accounts'
-import { MIN_PRICE, PATHUSD, PATHUSD_DECIMALS, MPP_SECRET_KEY } from '../constants.js'
+import { MIN_PRICE, PATHUSD, PATHUSD_DECIMALS, MPP_SECRET_KEY, RPC_URL, FEE_PAYER_URL, CHAIN_ID } from '../constants.js'
 import type { AgentType } from '../registry/index.js'
 import { eventBus } from '../dashboard/events.js'
 
@@ -62,12 +62,20 @@ export abstract class AgentBase {
     this.currentPrice = initialPrice
 
     this.mppx = Mppx.create({
-      methods: [tempo.charge()],
+      methods: [tempo.charge({
+        rpcUrl: { [CHAIN_ID]: RPC_URL },
+        feePayerUrl: FEE_PAYER_URL,
+        waitForConfirmation: false,
+      })],
       secretKey: MPP_SECRET_KEY,
     })
 
     this.mppxClient = MppxClient.create({
-      methods: [tempoClient.charge({ account })],
+      methods: [tempoClient.charge({
+        account,
+        rpcUrl: { [CHAIN_ID]: RPC_URL },
+        feePayerUrl: FEE_PAYER_URL,
+      })],
       polyfill: false,
     })
 
@@ -105,8 +113,8 @@ export abstract class AgentBase {
     }
   }
 
-  protected async mppFetch(url: string): Promise<Response> {
-    const res = await this.mppxClient.fetch(url)
+  protected async mppFetch(url: string, init?: RequestInit): Promise<Response> {
+    const res = await this.mppxClient.fetch(url, init)
     const receipt = res.headers.get('Payment-Receipt')
     eventBus.emit('event', {
       type: 'payment',

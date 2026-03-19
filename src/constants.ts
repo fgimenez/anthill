@@ -1,6 +1,7 @@
 export const PATHUSD = '0x20c0000000000000000000000000000000000000' as const
 export const PATHUSD_DECIMALS = 6
 export const RPC_URL = process.env.RPC_URL ?? 'https://rpc.moderato.tempo.xyz'
+export const FEE_PAYER_URL = process.env.FEE_PAYER_URL ?? 'https://sponsor.moderato.tempo.xyz'
 export const CHAIN_ID = 42431
 export const MPP_SECRET_KEY = process.env.MPP_SECRET_KEY ?? 'anthill-dev-secret'
 
