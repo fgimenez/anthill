@@ -35,4 +35,9 @@ describe('RegistryServer', () => {
     expect(res.status).toBe(200)
     expect(Array.isArray(res.body)).toBe(true)
   })
+
+  it('GET /agents has CORS header', async () => {
+    const res = await request(new RegistryServer().app).get('/agents')
+    expect(res.headers['access-control-allow-origin']).toBe('*')
+  })
 })

@@ -8,6 +8,7 @@ export class RegistryServer {
   constructor() {
     this.app = express()
     this.app.use(express.json())
+    this.app.use((_req, res, next) => { res.setHeader('Access-Control-Allow-Origin', '*'); next() })
     this.app.get('/agents', (_req, res) => res.json(this.registry.list()))
     this.app.post('/agents/register', (req, res) => {
       this.registry.register(req.body)

@@ -17,6 +17,12 @@ class TestAgent extends AgentBase {
 }
 
 describe('AgentBase /status', () => {
+  it('has CORS header', async () => {
+    const agent = new TestAgent()
+    const res = await request(agent.app).get('/status')
+    expect(res.headers['access-control-allow-origin']).toBe('*')
+  })
+
   it('returns 200 with type, address, txCount, currentPrice', async () => {
     const agent = new TestAgent()
     const res = await request(agent.app).get('/status')

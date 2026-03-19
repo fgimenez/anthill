@@ -70,6 +70,7 @@ export abstract class AgentBase {
 
     this.app = express()
     this.app.use(express.json())
+    this.app.use((_req, res, next) => { res.setHeader('Access-Control-Allow-Origin', '*'); next() })
     this.app.get('/status', (_req, res) => res.json(this.status()))
     this.app.post('/merge-offer', this.charged('Merge offer evaluation'), (req, res) => {
       const amount = req.body?.amount ?? '0'
