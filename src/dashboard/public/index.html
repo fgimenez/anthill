@@ -65,6 +65,7 @@
 </head>
 <body>
   <header>
+    <a href="/" style="color:#555;font-size:0.75rem;text-decoration:none;" title="Back to main">← home</a>
     <h1>🐜 Anthill</h1>
     <span class="status" id="conn-status">connecting…</span>
     <span class="status" id="event-count">0 events</span>
@@ -203,7 +204,7 @@
     // ── Leaderboard ────────────────────────────────────────────────────────────
     async function refreshLeaderboard() {
       try {
-        const agents = await (await fetch(`\${BASE}/agents`)).json()
+        const agents = await (await fetch(`${BASE}/agents`)).json()
         const rows = document.getElementById('lb-rows')
         rows.innerHTML = ''
         agents.sort((a, b) => {
@@ -273,7 +274,7 @@
     // ── Registry Polling ───────────────────────────────────────────────────────
     async function pollRegistry() {
       try {
-        const agents = await (await fetch(`\${BASE}/agents`)).json()
+        const agents = await (await fetch(`${BASE}/agents`)).json()
         const known = new Set(nodes.map(n => n.id))
         let newNodes = false
         agents.forEach(a => {
