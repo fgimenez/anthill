@@ -256,6 +256,7 @@ export abstract class AgentBase {
   }
 
   protected evaluateMergeOffer(_amount: string): boolean {
+    if (!this.active) return false  // already acquired — never accept again
     return false  // default: reject; subclasses override
   }
 

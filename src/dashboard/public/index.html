@@ -219,7 +219,8 @@
           const txCount = stats?.txCount ?? 0
           const div = document.createElement('div')
           div.className = 'lb-row' + (a.active ? '' : ' exited')
-          div.innerHTML = `<span class="name">${a.type}</span><span class="score">${a.exitScore ? a.exitScore + ' ✓' : balance + ' $'}</span><span style="font-size:0.65rem;color:#444">${txCount}tx</span>`
+          const exitDisplay = a.exitScore ? Math.floor(Number(a.exitScore) / 1_000_000) + ' ✓' : balance + ' $'
+          div.innerHTML = `<span class="name">${a.type}</span><span class="score">${exitDisplay}</span><span style="font-size:0.65rem;color:#444">${txCount}tx</span>`
           rows.appendChild(div)
         })
       } catch {}
