@@ -4,8 +4,9 @@ import { z } from 'zod'
 import { Mppx } from 'mppx/express'
 import { tempo } from 'mppx/server'
 import { Mppx as MppxClient, tempo as tempoClient } from 'mppx/client'
-import { createClient, custom } from 'viem'
+import { createClient, custom, http } from 'viem'
 import { tempoModerato } from 'viem/chains'
+import { withFeePayer } from 'viem/tempo'
 import { privateKeyToAccount } from 'viem/accounts'
 import { EventEmitter } from 'node:events'
 import { MIN_PRICE, PATHUSD, PATHUSD_DECIMALS, MPP_SECRET_KEY, FEE_PAYER_URL, RPC_URL } from '../constants.js'
@@ -75,10 +76,23 @@ export abstract class AgentBase {
     this.initialPrice = initialPrice
     this.eventBus = config.eventBus ?? new EventEmitter()
 
+    // Server-side client: uses withFeePayer with sign-and-broadcast policy.
+    // The Moderato fee payer relay does NOT support eth_signRawTransaction (sign-only),
+    // so we must forward the whole tx to the relay directly (sign-and-broadcast).
+    const getServerClient = () => createClient({
+      chain: tempoModerato,
+      transport: withFeePayer(
+        http(RPC_URL),
+        http(FEE_PAYER_URL),
+        { policy: 'sign-and-broadcast' },
+      ),
+    })
+
     this.mppx = Mppx.create({
       methods: [tempo.charge({
         testnet: true,
-        feePayer: FEE_PAYER_URL,  // relay signs gas; withFeePayer transport handles sendRawTransaction*
+        feePayer: FEE_PAYER_URL,
+        getClient: getServerClient,
       })],
       secretKey: MPP_SECRET_KEY,
     })
