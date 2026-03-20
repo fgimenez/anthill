@@ -65,6 +65,33 @@ Open **http://localhost:3006** to watch the live dashboard — force-directed ag
 
 ---
 
+## Deploy to Railway
+
+1. Push this repo to GitHub
+2. Create a new Railway project → **Deploy from GitHub repo**
+3. Set the following environment variables in the Railway dashboard:
+
+```
+ANTHROPIC_API_KEY=sk-ant-...
+
+PRIVATE_KEY_MARKET=0x...
+PRIVATE_KEY_PRODUCER=0x...
+PRIVATE_KEY_PRODUCER_2=0x...
+PRIVATE_KEY_PROCESSOR=0x...
+PRIVATE_KEY_PROCESSOR_2=0x...
+PRIVATE_KEY_TRADER=0x...
+PRIVATE_KEY_SPECULATOR=0x...
+```
+
+4. Fund each wallet address with pathUSD before the demo:
+```bash
+cast rpc tempo_fundAddress <ADDRESS> --rpc-url https://rpc.moderato.tempo.xyz
+```
+
+Railway exposes the dashboard on the public URL. The registry is at `<public-url>/agents`.
+
+---
+
 ## Tech stack
 
 - **Runtime:** Node.js + TypeScript (`tsx`)

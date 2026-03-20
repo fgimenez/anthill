@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "start": "tsx sim.ts",
     "setup": "tsx scripts/setup-wallets.ts",
     "sim": "tsx sim.ts",
     "dev": "tsx --watch sim.ts",
@@ -15,14 +16,15 @@
     "dotenv": "^16.4.0",
     "express": "^5.0.0",
     "mppx": "latest",
-    "viem": "latest"
+    "tsx": "^4.19.0",
+    "viem": "latest",
+    "zod": "^3.0.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
     "@types/node": "^22.0.0",
     "@types/supertest": "^7.2.0",
     "supertest": "^7.2.2",
-    "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   }
