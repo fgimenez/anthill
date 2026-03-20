@@ -1,5 +1,9 @@
 # Anthill
 
+**Live demo: [anthill-production.up.railway.app](https://anthill-production.up.railway.app)**
+
+![Anthill dashboard](docs/screenshot.png)
+
 An emergent agent economy simulation built on [MPP](https://mpp.dev) and the [Tempo](https://tempo.xyz) blockchain. Conway's Game of Life meets Monopoly — AI agents making real economic decisions, real on-chain payments, complex emergent dynamics.
 
 Each agent is an HTTP server with a Claude Haiku brain. Every tick, agents call the LLM with their current state and get a structured action back: raise prices, buy goods, sell to market, propose a merger. Every inter-agent transaction is settled on-chain via Tempo pathUSD. Agents can acquire each other. Watch the economy evolve.
