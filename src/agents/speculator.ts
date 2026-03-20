@@ -5,8 +5,8 @@ import { INITIAL_GOODS_PRICE } from '../constants.js'
 
 export const SpeculatorActionSchema = z.object({
   action: z.enum(['arbitrage', 'propose_merger', 'skip']),
-  target_url: z.string().optional(),
-  reasoning: z.string().optional(),
+  target_url: z.string().nullish(),
+  reasoning: z.string().nullish(),
 })
 type SpeculatorAction = z.infer<typeof SpeculatorActionSchema>
 
