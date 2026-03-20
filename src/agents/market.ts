@@ -1,6 +1,5 @@
 import { AgentBase, AgentConfig } from './base.js'
 import { INITIAL_GOODS_BID, INITIAL_PRODUCTS_BID, MIN_PRICE } from '../constants.js'
-import { eventBus } from '../dashboard/events.js'
 
 export { nextPrice }
 
@@ -37,7 +36,7 @@ export class MarketAgent extends AgentBase {
       } else {
         this.productsBid = spike ? this.productsBid * 150n / 100n : this.productsBid * 60n / 100n
       }
-      eventBus.emit('event', {
+      this.eventBus.emit('event', {
         type: 'price-change',
         from: this.address,
         price: (target === 'goods' ? this.goodsBid : this.productsBid).toString(),
@@ -50,7 +49,7 @@ export class MarketAgent extends AgentBase {
     // ensure invariant: productsBid > goodsBid
     if (this.productsBid <= this.goodsBid) this.productsBid = this.goodsBid + INITIAL_GOODS_BID / 2n
 
-    eventBus.emit('event', {
+    this.eventBus.emit('event', {
       type: 'price-change',
       from: this.address,
       agentType: 'market',

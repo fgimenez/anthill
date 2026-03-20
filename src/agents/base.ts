@@ -7,9 +7,9 @@ import { Mppx as MppxClient, tempo as tempoClient } from 'mppx/client'
 import { createClient, custom } from 'viem'
 import { tempoModerato } from 'viem/chains'
 import { privateKeyToAccount } from 'viem/accounts'
+import { EventEmitter } from 'node:events'
 import { MIN_PRICE, PATHUSD, PATHUSD_DECIMALS, MPP_SECRET_KEY, FEE_PAYER_URL, RPC_URL } from '../constants.js'
 import type { AgentType } from '../registry/index.js'
-import { eventBus } from '../dashboard/events.js'
 
 export async function decide<T>(
   systemPrompt: string,
@@ -44,6 +44,7 @@ export interface AgentConfig {
   privateKey: `0x${string}`
   tickIntervalMs: number
   registryUrl?: string
+  eventBus?: EventEmitter
 }
 
 export abstract class AgentBase {
@@ -53,6 +54,7 @@ export abstract class AgentBase {
   protected readonly mppx: any
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected readonly mppxClient: any
+  protected readonly eventBus: EventEmitter
   protected currentPrice: bigint
   protected readonly initialPrice: bigint
   protected strategy: { name: string; prompt: string } = { name: 'default', prompt: '' }
@@ -69,6 +71,7 @@ export abstract class AgentBase {
     this.address = account.address
     this.currentPrice = initialPrice
     this.initialPrice = initialPrice
+    this.eventBus = config.eventBus ?? new EventEmitter()
 
     this.mppx = Mppx.create({
       methods: [tempo.charge({
@@ -137,7 +140,7 @@ export abstract class AgentBase {
       const res = await this.mppxClient.fetch(url, init)
       this.txCount++
       const receipt = res.headers.get('Payment-Receipt')
-      eventBus.emit('event', {
+      this.eventBus.emit('event', {
         type: 'payment',
         from: this.address,
         to: url,
@@ -153,7 +156,7 @@ export abstract class AgentBase {
   }
 
   protected emitPriceChange() {
-    eventBus.emit('event', {
+    this.eventBus.emit('event', {
       type: 'price-change',
       from: this.address,
       price: this.currentPrice.toString(),
@@ -163,7 +166,7 @@ export abstract class AgentBase {
   }
 
   protected emitDecision(action: string) {
-    eventBus.emit('event', {
+    this.eventBus.emit('event', {
       type: 'decision',
       from: this.address,
       agentType: this.config.type,
@@ -189,6 +192,7 @@ export abstract class AgentBase {
   protected abstract tick(): Promise<void>
 
   get agentType() { return this.config.type }
+  get port() { return this.config.port }
 
   setStrategy(s: { name: string; prompt: string }) { this.strategy = s }
 
@@ -221,7 +225,7 @@ export abstract class AgentBase {
         body: JSON.stringify({ exitScore }),
       }).catch(() => {})
     }
-    eventBus.emit('event', { type: 'merge', from: this.address, amount: buyout, agentType: this.config.type, ts: Date.now() })
+    this.eventBus.emit('event', { type: 'merge', from: this.address, amount: buyout, agentType: this.config.type, ts: Date.now() })
     console.log(`[${this.config.type}] acquired — exit score: ${exitScore} pathUSD`)
   }
 

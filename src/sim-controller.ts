@@ -1,6 +1,6 @@
+import { EventEmitter } from 'node:events'
 import { bootstrap } from './bootstrap.js'
 import type { AgentBase } from './agents/base.js'
-import { eventBus } from './dashboard/events.js'
 
 export class SimController {
   private agents: AgentBase[] = []
@@ -8,21 +8,28 @@ export class SimController {
   private tickCount = 0
   private masterInterval?: ReturnType<typeof setInterval>
   readonly winTicks: number
+  private readonly eventBus: EventEmitter
+  private readonly bootstrapFn: () => Promise<void>
 
-  constructor(winTicks = 0) {
+  constructor(
+    winTicks = 0,
+    eventBus: EventEmitter = new EventEmitter(),
+    bootstrapFn: () => Promise<void> = bootstrap,
+  ) {
     this.winTicks = winTicks
+    this.eventBus = eventBus
+    this.bootstrapFn = bootstrapFn
   }
 
   register(agent: AgentBase) {
     this.agents.push(agent)
   }
 
-  // Start the master tick counter (same interval as agents)
   start(tickIntervalMs: number) {
     this.masterInterval = setInterval(() => {
       if (this._paused) return
       this.tickCount++
-      eventBus.emit('event', {
+      this.eventBus.emit('event', {
         type: 'tick',
         tick: this.tickCount,
         winTicks: this.winTicks,
@@ -31,7 +38,7 @@ export class SimController {
       if (this.winTicks > 0 && this.tickCount >= this.winTicks) {
         clearInterval(this.masterInterval)
         this.pause()
-        eventBus.emit('event', { type: 'game-over', tick: this.tickCount, ts: Date.now() })
+        this.eventBus.emit('event', { type: 'game-over', tick: this.tickCount, ts: Date.now() })
         console.log(`[sim] game over — ${this.tickCount} ticks`)
       }
     }, tickIntervalMs)
@@ -51,11 +58,11 @@ export class SimController {
     this.pause()
     this.tickCount = 0
     console.log('[sim] restarting — re-funding wallets…')
-    await bootstrap()
+    await this.bootstrapFn()
     for (const a of this.agents) a.reset()
     this.resume()
     console.log('[sim] restarted')
-    eventBus.emit('event', { type: 'restarted', ts: Date.now() })
+    this.eventBus.emit('event', { type: 'restarted', ts: Date.now() })
   }
 
   setStrategyForType(type: string, strategy: { name: string; prompt: string }) {

@@ -105,7 +105,8 @@
 
   <script>
     // ── State ──────────────────────────────────────────────────────────────────
-    const REGISTRY_URL = window.location.origin.replace(/:\d+$/, ':3000')
+    const SIM_ID = window.SIM_ID || 'default'
+    const BASE = '/sim/' + SIM_ID
     let eventCount = 0
     const priceHistory = { goods: [], products: [] }
     const MAX_HISTORY = 60
@@ -202,7 +203,7 @@
     // ── Leaderboard ────────────────────────────────────────────────────────────
     async function refreshLeaderboard() {
       try {
-        const agents = await (await fetch(`${REGISTRY_URL}/agents`)).json()
+        const agents = await (await fetch(`\${BASE}/agents`)).json()
         const rows = document.getElementById('lb-rows')
         rows.innerHTML = ''
         agents.sort((a, b) => {
@@ -272,7 +273,7 @@
     // ── Registry Polling ───────────────────────────────────────────────────────
     async function pollRegistry() {
       try {
-        const agents = await (await fetch(`${REGISTRY_URL}/agents`)).json()
+        const agents = await (await fetch(`\${BASE}/agents`)).json()
         const known = new Set(nodes.map(n => n.id))
         let newNodes = false
         agents.forEach(a => {
@@ -341,7 +342,7 @@
     }
 
     // ── SSE ────────────────────────────────────────────────────────────────────
-    const es = new EventSource('/events')
+    const es = new EventSource(`${BASE}/events`)
     es.onopen = () => { document.getElementById('conn-status').textContent = '● connected' ; document.getElementById('conn-status').style.color = '#4ade80' }
     es.onerror = () => { document.getElementById('conn-status').textContent = '○ reconnecting…'; document.getElementById('conn-status').style.color = '#f87171' }
     es.onmessage = (e) => {
@@ -379,7 +380,7 @@
     // ── Control Box ────────────────────────────────────────────────────────────
     async function loadControlState() {
       try {
-        const state = await (await fetch('/control/state')).json()
+        const state = await (await fetch(`${BASE}/control/state`)).json()
         const label = state.winTicks > 0 ? `Tick ${state.tick} / ${state.winTicks}` : `Tick ${state.tick}`
         document.getElementById('tick-display').textContent = label
         if (state.paused) {
@@ -391,13 +392,13 @@
 
     async function loadStrategies() {
       try {
-        const strategies = await (await fetch('/control/strategies')).json()
+        const strategies = await (await fetch(`${BASE}/control/strategies`)).json()
         for (const [type, list] of Object.entries(strategies)) {
           const sel = document.getElementById(`strat-${type}`)
           if (!sel) continue
           sel.innerHTML = list.map(s => `<option value="${s.name}">${s.name}</option>`).join('')
           sel.addEventListener('change', () => {
-            fetch(`/control/strategy/${type}`, {
+            fetch(`${BASE}/control/strategy/${type}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ name: sel.value }),
@@ -408,13 +409,13 @@
     }
 
     document.getElementById('btn-pause').addEventListener('click', async () => {
-      await fetch('/control/pause', { method: 'POST' })
+      await fetch(`${BASE}/control/pause`, { method: 'POST' })
       document.getElementById('btn-pause').style.display = 'none'
       document.getElementById('btn-resume').style.display = ''
     })
 
     document.getElementById('btn-resume').addEventListener('click', async () => {
-      await fetch('/control/resume', { method: 'POST' })
+      await fetch(`${BASE}/control/resume`, { method: 'POST' })
       document.getElementById('btn-pause').style.display = ''
       document.getElementById('btn-resume').style.display = 'none'
     })
@@ -423,7 +424,7 @@
       const btn = document.getElementById('btn-restart')
       btn.disabled = true
       btn.textContent = '↺ Restarting…'
-      await fetch('/control/restart', { method: 'POST' })
+      await fetch(`${BASE}/control/restart`, { method: 'POST' })
       btn.disabled = false
       btn.textContent = '↺ Restart'
     })

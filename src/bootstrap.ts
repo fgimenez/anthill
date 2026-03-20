@@ -21,7 +21,7 @@ const AGENT_KEYS = [
 // Fund if balance is below 100,000 pathUSD
 const FUND_THRESHOLD = 100_000_000_000n
 
-async function getPathUSDBalance(address: string): Promise<bigint> {
+export async function getPathUSDBalance(address: string): Promise<bigint> {
   const data = '0x70a08231' + address.slice(2).padStart(64, '0')
   const res = await fetch(RPC_URL, {
     method: 'POST',
@@ -37,7 +37,7 @@ async function getPathUSDBalance(address: string): Promise<bigint> {
   return BigInt(json.result)
 }
 
-async function fundAddress(address: string): Promise<void> {
+export async function fundAddress(address: string): Promise<void> {
   const res = await fetch(RPC_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

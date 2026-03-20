@@ -1,5 +1,3 @@
-import { EventEmitter } from 'node:events'
-
 export interface AntEvent {
   type: 'payment' | 'merge' | 'price-change' | 'decision' | 'tick' | 'game-over' | 'restarted'
   from?: string
@@ -13,5 +11,3 @@ export interface AntEvent {
   winTicks?: number
   ts: number
 }
-
-export const eventBus = new EventEmitter()
