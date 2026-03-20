@@ -149,7 +149,7 @@ export abstract class AgentBase {
     this.app.get('/status', (_req, res) => res.json(this.status()))
     this.app.post('/merge-offer', this.charged('Merge offer evaluation'), (req, res) => {
       const amount = req.body?.amount ?? '0'
-      const accept = this.evaluateMergeOffer(amount)
+      const accept = this.active && this.evaluateMergeOffer(amount)
       res.json({ accept })
       if (accept) setImmediate(() => this.executeExit(amount).catch(() => {}))
     })
