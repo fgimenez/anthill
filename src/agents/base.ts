@@ -264,7 +264,7 @@ export abstract class AgentBase {
       } catch { /* non-fatal */ }
     }
     refresh()  // fetch immediately on start
-    setInterval(refresh, 15_000)
+    setInterval(refresh, 5_000)
   }
 
   start() {
