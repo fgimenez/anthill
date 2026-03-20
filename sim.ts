@@ -1,4 +1,9 @@
 import 'dotenv/config'
+// Polyfill Web Crypto for Node.js < 19
+if (!globalThis.crypto) {
+  const { webcrypto } = await import('node:crypto')
+  Object.defineProperty(globalThis, 'crypto', { value: webcrypto })
+}
 import chalk from 'chalk'
 import { SimulationManager } from './src/sim-manager.js'
 import { DashboardServer } from './src/dashboard/server.js'

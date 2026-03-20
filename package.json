@@ -2,6 +2,9 @@
   "name": "anthill",
   "version": "0.1.0",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "tsx sim.ts",
     "setup": "tsx scripts/setup-wallets.ts",
