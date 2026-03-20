@@ -80,6 +80,8 @@ Open **http://localhost:3006** to watch the live dashboard — force-directed ag
 
 ```
 sim.ts                            # Boots all agents, registry, and dashboard
+strategies/
+└── prompts.json                  # Agent personality strategies (edit to customise AI behaviour)
 src/
 ├── constants.ts                  # Chain config, token address, price constants
 ├── registry/

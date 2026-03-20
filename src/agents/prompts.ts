@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module'
 
 const require = createRequire(import.meta.url)
-const PROMPTS = require('./prompts.json') as Record<string, Array<{ name: string; prompt: string }>>
+const PROMPTS = require('../../strategies/prompts.json') as Record<string, Array<{ name: string; prompt: string }>>
 
 export type AgentArchetype = 'producer' | 'processor' | 'trader' | 'speculator'
 
