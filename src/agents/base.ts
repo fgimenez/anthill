@@ -54,16 +54,21 @@ export abstract class AgentBase {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected readonly mppxClient: any
   protected currentPrice: bigint
+  protected readonly initialPrice: bigint
+  protected strategy: { name: string; prompt: string } = { name: 'default', prompt: '' }
   protected requestsThisTick = 0
   protected txCount = 0
   protected lastTx?: string
   protected active = true
+  private _paused = false
   private tickInterval?: ReturnType<typeof setInterval>
+  private cachedBalance = '0'
 
   constructor(protected config: AgentConfig, initialPrice: bigint) {
     const account = privateKeyToAccount(config.privateKey)
     this.address = account.address
     this.currentPrice = initialPrice
+    this.initialPrice = initialPrice
 
     this.mppx = Mppx.create({
       methods: [tempo.charge({
@@ -183,6 +188,22 @@ export abstract class AgentBase {
   protected abstract setup(): void
   protected abstract tick(): Promise<void>
 
+  get agentType() { return this.config.type }
+
+  setStrategy(s: { name: string; prompt: string }) { this.strategy = s }
+
+  setPaused(v: boolean) { this._paused = v }
+
+  reset() {
+    this.active = true
+    this._paused = false
+    this.txCount = 0
+    this.currentPrice = this.initialPrice
+    this.requestsThisTick = 0
+    // Restart tick interval if it was cleared (e.g. after executeExit)
+    if (!this.tickInterval) this.startTicking()
+  }
+
   protected evaluateMergeOffer(_amount: string): boolean {
     return false  // default: reject; subclasses override
   }
@@ -190,6 +211,7 @@ export abstract class AgentBase {
   protected async executeExit(buyout: string): Promise<void> {
     this.active = false
     clearInterval(this.tickInterval)
+    this.tickInterval = undefined
     const exitScore = buyout
     const id = `${this.config.type}-${this.address}`
     if (this.config.registryUrl) {
@@ -211,7 +233,34 @@ export abstract class AgentBase {
       lastTx: this.lastTx,
       currentPrice: this.currentPrice.toString(),
       active: this.active,
+      balance: this.cachedBalance,
+      strategy: this.strategy.name,
     }
+  }
+
+  private startTicking() {
+    this.tickInterval = setInterval(async () => {
+      if (!this.active || this._paused) return
+      try { await this.tick() } catch { /* swallow tick errors */ }
+      this.requestsThisTick = 0
+    }, this.config.tickIntervalMs)
+  }
+
+  private startBalancePolling() {
+    const refresh = async () => {
+      try {
+        const data = '0x70a08231' + this.address.slice(2).padStart(64, '0')
+        const res = await fetch(RPC_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: PATHUSD, data }, 'latest'] }),
+        })
+        const json = await res.json() as { result: string }
+        this.cachedBalance = (BigInt(json.result) / 1_000_000n).toString()
+      } catch { /* non-fatal */ }
+    }
+    refresh()  // fetch immediately on start
+    setInterval(refresh, 15_000)
   }
 
   start() {
@@ -222,11 +271,8 @@ export abstract class AgentBase {
           .catch(() => { /* non-fatal */ })
       }
     })
-    this.tickInterval = setInterval(async () => {
-      if (!this.active) return
-      try { await this.tick() } catch (e) { /* swallow tick errors */ }
-      this.requestsThisTick = 0
-    }, this.config.tickIntervalMs)
+    this.startTicking()
+    this.startBalancePolling()
   }
 }
 

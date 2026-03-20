@@ -11,10 +11,9 @@ export const SpeculatorActionSchema = z.object({
 type SpeculatorAction = z.infer<typeof SpeculatorActionSchema>
 
 export class SpeculatorAgent extends AgentBase {
-  private readonly strategy = getRandomStrategy('speculator')
-
   constructor(config: AgentConfig) {
     super(config, 0n)
+    this.strategy = getRandomStrategy('speculator')
     console.log(`[speculator] strategy: ${this.strategy.name}`)
   }
 

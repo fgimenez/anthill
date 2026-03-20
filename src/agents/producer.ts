@@ -10,14 +10,13 @@ export const ProducerActionSchema = z.object({
 type ProducerAction = z.infer<typeof ProducerActionSchema>
 
 export class ProducerAgent extends AgentBase {
-  private readonly strategy = getRandomStrategy('producer')
-
   protected evaluateMergeOffer(amount: string): boolean {
     return BigInt(amount) > this.currentPrice * 2n
   }
 
   constructor(config: AgentConfig) {
     super(config, INITIAL_GOODS_PRICE)
+    this.strategy = getRandomStrategy('producer')
     console.log(`[producer] strategy: ${this.strategy.name}`)
   }
 

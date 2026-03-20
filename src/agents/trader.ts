@@ -18,10 +18,10 @@ interface PriceSignal {
 
 export class TraderAgent extends AgentBase {
   private latestSignal: PriceSignal | null = null
-  private readonly strategy = getRandomStrategy('trader')
 
   constructor(config: AgentConfig) {
     super(config, INITIAL_SIGNAL_PRICE)
+    this.strategy = getRandomStrategy('trader')
     console.log(`[trader] strategy: ${this.strategy.name}`)
   }
 
@@ -81,13 +81,11 @@ export class TraderAgent extends AgentBase {
         const res = await this.mppFetch(`${producer.url}/produce`)
         const body = await res.json() as { price?: string }
         goodsPrice = body.price ?? '0'
-        this.txCount++
       }
       if (processor) {
         const res = await this.mppFetch(`${processor.url}/process`)
         const body = await res.json() as { price?: string }
         productsPrice = body.price ?? '0'
-        this.txCount++
       }
 
       const spread = (BigInt(productsPrice) - BigInt(goodsPrice)).toString()

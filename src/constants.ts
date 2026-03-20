@@ -14,3 +14,6 @@ export const INITIAL_PRODUCTS_PRICE = 2_500_000_000n // 2,500 pathUSD
 export const INITIAL_SIGNAL_PRICE   = 300_000_000n   // 300 pathUSD
 export const MIN_PRICE = 100_000_000n  // 100 pathUSD floor
 export const PROCESSOR_MARGIN_THRESHOLD = 300_000_000n // 300 pathUSD min margin
+
+// Win condition: game ends after this many ticks (0 = disabled)
+export const WIN_TICKS = Number(process.env.WIN_TICKS ?? '0')

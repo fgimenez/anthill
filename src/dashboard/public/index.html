@@ -6,11 +6,25 @@
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #0a0a0a; color: #e0e0e0; font-family: 'Courier New', monospace; height: 100vh; display: grid; grid-template-columns: 1fr 320px; grid-template-rows: auto 1fr auto; }
+    body { background: #0a0a0a; color: #e0e0e0; font-family: 'Courier New', monospace; height: 100vh; display: grid; grid-template-columns: 1fr 320px; grid-template-rows: auto auto 1fr auto; }
 
     header { grid-column: 1/-1; padding: 12px 20px; border-bottom: 1px solid #222; display: flex; align-items: center; gap: 16px; }
     header h1 { font-size: 1.1rem; color: #fff; }
     header .status { font-size: 0.75rem; color: #555; }
+
+    #control-bar { grid-column: 1/-1; padding: 8px 20px; border-bottom: 1px solid #222; background: #0d0d0d; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .ctrl-btn { background: #1a1a1a; color: #ccc; border: 1px solid #333; border-radius: 4px; padding: 4px 12px; font-family: inherit; font-size: 0.75rem; cursor: pointer; }
+    .ctrl-btn:hover { background: #222; color: #fff; }
+    .ctrl-btn:disabled { opacity: 0.4; cursor: default; }
+    .ctrl-btn.danger { border-color: #7f1d1d; color: #fca5a5; }
+    .ctrl-btn.danger:hover { background: #2d0f0f; }
+    #tick-display { font-size: 0.75rem; color: #555; min-width: 80px; }
+    #win-display { font-size: 0.75rem; color: #a78bfa; display: none; }
+    .strat-group { display: flex; align-items: center; gap: 4px; }
+    .strat-label { font-size: 0.65rem; color: #444; }
+    .strat-select { background: #111; color: #888; border: 1px solid #2a2a2a; border-radius: 3px; font-family: inherit; font-size: 0.7rem; padding: 2px 6px; cursor: pointer; }
+    .strat-select:hover { border-color: #444; }
+    .ctrl-separator { width: 1px; height: 20px; background: #222; margin: 0 4px; }
 
     #graph { position: relative; overflow: hidden; }
     #graph svg { width: 100%; height: 100%; }
@@ -55,6 +69,20 @@
     <span class="status" id="conn-status">connecting…</span>
     <span class="status" id="event-count">0 events</span>
   </header>
+
+  <div id="control-bar">
+    <span id="tick-display">Tick 0</span>
+    <span id="win-display"></span>
+    <div class="ctrl-separator"></div>
+    <button class="ctrl-btn" id="btn-pause">⏸ Pause</button>
+    <button class="ctrl-btn" id="btn-resume" style="display:none">▶ Resume</button>
+    <button class="ctrl-btn danger" id="btn-restart">↺ Restart</button>
+    <div class="ctrl-separator"></div>
+    <div class="strat-group"><span class="strat-label">producer</span><select class="strat-select" id="strat-producer" data-type="producer"></select></div>
+    <div class="strat-group"><span class="strat-label">processor</span><select class="strat-select" id="strat-processor" data-type="processor"></select></div>
+    <div class="strat-group"><span class="strat-label">trader</span><select class="strat-select" id="strat-trader" data-type="trader"></select></div>
+    <div class="strat-group"><span class="strat-label">speculator</span><select class="strat-select" id="strat-speculator" data-type="speculator"></select></div>
+  </div>
 
   <div id="graph"><svg></svg></div>
 
@@ -178,16 +206,17 @@
         const rows = document.getElementById('lb-rows')
         rows.innerHTML = ''
         agents.sort((a, b) => {
-          const txA = nodeStats[a.id]?.txCount ?? 0
-          const txB = nodeStats[b.id]?.txCount ?? 0
-          return txB - txA
+          const balA = Number(nodeStats[a.id]?.balance ?? 0)
+          const balB = Number(nodeStats[b.id]?.balance ?? 0)
+          return balB - balA
         })
         agents.forEach(a => {
           const stats = nodeStats[a.id]
+          const balance = stats?.balance ?? '—'
           const txCount = stats?.txCount ?? 0
           const div = document.createElement('div')
           div.className = 'lb-row' + (a.active ? '' : ' exited')
-          div.innerHTML = `<span class="name">${a.type}</span><span class="score">${a.exitScore ? a.exitScore + ' ✓' : txCount + ' tx'}</span>`
+          div.innerHTML = `<span class="name">${a.type}</span><span class="score">${a.exitScore ? a.exitScore + ' ✓' : balance + ' $'}</span><span style="font-size:0.65rem;color:#444">${txCount}tx</span>`
           rows.appendChild(div)
         })
       } catch {}
@@ -287,7 +316,7 @@
       for (const node of nodes) {
         try {
           const status = await (await fetch(`${node.url}/status`)).json()
-          nodeStats[node.id] = { txCount: status.txCount ?? 0 }
+          nodeStats[node.id] = { txCount: status.txCount ?? 0, balance: status.balance ?? '0' }
         } catch {}
       }
       // Update node sizes
@@ -319,11 +348,89 @@
       const ev = JSON.parse(e.data)
       eventCount++
       document.getElementById('event-count').textContent = `${eventCount} events`
-      addFeedEvent(ev)
-      if (ev.type === 'payment') flashLink(ev.from, ev.to)
+      if (ev.type === 'tick') {
+        const label = ev.winTicks > 0 ? `Tick ${ev.tick} / ${ev.winTicks}` : `Tick ${ev.tick}`
+        document.getElementById('tick-display').textContent = label
+      } else if (ev.type === 'game-over') {
+        document.getElementById('tick-display').textContent = `Tick ${ev.tick} — done`
+        document.getElementById('tick-display').style.color = '#f87171'
+        const win = document.getElementById('win-display')
+        win.textContent = '🏆 Game over!'
+        win.style.display = ''
+        document.getElementById('btn-pause').style.display = 'none'
+        document.getElementById('btn-resume').style.display = 'none'
+      } else if (ev.type === 'restarted') {
+        document.getElementById('tick-display').textContent = 'Tick 0'
+        document.getElementById('tick-display').style.color = '#555'
+        document.getElementById('win-display').style.display = 'none'
+        document.getElementById('btn-pause').style.display = ''
+        document.getElementById('btn-resume').style.display = 'none'
+        // Reset local state
+        Object.keys(nodeStats).forEach(k => delete nodeStats[k])
+        priceHistory.goods.length = 0
+        priceHistory.products.length = 0
+        document.getElementById('events-list').innerHTML = ''
+      } else {
+        addFeedEvent(ev)
+        if (ev.type === 'payment') flashLink(ev.from, ev.to)
+      }
     }
 
+    // ── Control Box ────────────────────────────────────────────────────────────
+    async function loadControlState() {
+      try {
+        const state = await (await fetch('/control/state')).json()
+        const label = state.winTicks > 0 ? `Tick ${state.tick} / ${state.winTicks}` : `Tick ${state.tick}`
+        document.getElementById('tick-display').textContent = label
+        if (state.paused) {
+          document.getElementById('btn-pause').style.display = 'none'
+          document.getElementById('btn-resume').style.display = ''
+        }
+      } catch {}
+    }
+
+    async function loadStrategies() {
+      try {
+        const strategies = await (await fetch('/control/strategies')).json()
+        for (const [type, list] of Object.entries(strategies)) {
+          const sel = document.getElementById(`strat-${type}`)
+          if (!sel) continue
+          sel.innerHTML = list.map(s => `<option value="${s.name}">${s.name}</option>`).join('')
+          sel.addEventListener('change', () => {
+            fetch(`/control/strategy/${type}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: sel.value }),
+            })
+          })
+        }
+      } catch {}
+    }
+
+    document.getElementById('btn-pause').addEventListener('click', async () => {
+      await fetch('/control/pause', { method: 'POST' })
+      document.getElementById('btn-pause').style.display = 'none'
+      document.getElementById('btn-resume').style.display = ''
+    })
+
+    document.getElementById('btn-resume').addEventListener('click', async () => {
+      await fetch('/control/resume', { method: 'POST' })
+      document.getElementById('btn-pause').style.display = ''
+      document.getElementById('btn-resume').style.display = 'none'
+    })
+
+    document.getElementById('btn-restart').addEventListener('click', async () => {
+      const btn = document.getElementById('btn-restart')
+      btn.disabled = true
+      btn.textContent = '↺ Restarting…'
+      await fetch('/control/restart', { method: 'POST' })
+      btn.disabled = false
+      btn.textContent = '↺ Restart'
+    })
+
     // ── Boot ───────────────────────────────────────────────────────────────────
+    loadControlState()
+    loadStrategies()
     pollRegistry()
     setInterval(pollRegistry, 5000)
     setInterval(pollAgentStatuses, 4000)

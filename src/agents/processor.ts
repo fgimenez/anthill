@@ -13,7 +13,6 @@ type ProcessorAction = z.infer<typeof ProcessorActionSchema>
 
 export class ProcessorAgent extends AgentBase {
   private marketUrl?: string
-  private readonly strategy = getRandomStrategy('processor')
 
   protected evaluateMergeOffer(amount: string): boolean {
     return BigInt(amount) > this.currentPrice * 3n
@@ -22,6 +21,7 @@ export class ProcessorAgent extends AgentBase {
   constructor(config: AgentConfig, marketUrl?: string) {
     super(config, INITIAL_PRODUCTS_PRICE)
     this.marketUrl = marketUrl
+    this.strategy = getRandomStrategy('processor')
     console.log(`[processor] strategy: ${this.strategy.name}`)
   }
 
@@ -84,10 +84,8 @@ export class ProcessorAgent extends AgentBase {
       const producer = agents.find(a => a.type === 'producer')
       if (!producer) return
       await this.mppFetch(`${producer.url}/produce`)
-      this.txCount++
       if (this.marketUrl) {
         await this.mppFetch(`${this.marketUrl}/buy-order`)
-        this.txCount++
       }
     } catch { /* non-fatal */ }
   }
