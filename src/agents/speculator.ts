@@ -68,7 +68,6 @@ export class SpeculatorAgent extends AgentBase {
     try {
       await this.mppFetch(`${producer.url}/produce`)
       await this.mppFetch(`${market.url}/buy-order`)
-      this.txCount += 2
     } catch { /* non-fatal */ }
   }
 
@@ -85,7 +84,6 @@ export class SpeculatorAgent extends AgentBase {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount: offerAmount.toString() }),
       })
-      this.txCount++
     } catch { /* non-fatal */ }
   }
 }

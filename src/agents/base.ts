@@ -122,19 +122,21 @@ export abstract class AgentBase {
   // Returns an Express middleware that issues a 402 challenge at the current price
   protected charged(description: string) {
     return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+      const countingNext: express.NextFunction = (...args) => { this.txCount++; next(...args) }
       this.mppx.charge({
         amount: this.currentPrice.toString(),
         currency: PATHUSD,
         decimals: PATHUSD_DECIMALS,
         recipient: this.address,
         description,
-      })(req, res, next)
+      })(req, res, countingNext)
     }
   }
 
   protected async mppFetch(url: string, init?: RequestInit): Promise<Response> {
     try {
       const res = await this.mppxClient.fetch(url, init)
+      this.txCount++
       const receipt = res.headers.get('Payment-Receipt')
       eventBus.emit('event', {
         type: 'payment',
