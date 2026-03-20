@@ -6,10 +6,9 @@ import { tempo } from 'mppx/server'
 import { Mppx as MppxClient, tempo as tempoClient } from 'mppx/client'
 import { createClient, custom, http } from 'viem'
 import { tempoModerato } from 'viem/chains'
-import { withFeePayer } from 'viem/tempo'
 import { privateKeyToAccount } from 'viem/accounts'
 import { EventEmitter } from 'node:events'
-import { MIN_PRICE, PATHUSD, PATHUSD_DECIMALS, MPP_SECRET_KEY, FEE_PAYER_URL, RPC_URL } from '../constants.js'
+import { MIN_PRICE, PATHUSD, MPP_SECRET_KEY, FEE_PAYER_URL, RPC_URL } from '../constants.js'
 import type { AgentType } from '../registry/index.js'
 
 export async function decide<T>(
@@ -76,16 +75,32 @@ export abstract class AgentBase {
     this.initialPrice = initialPrice
     this.eventBus = config.eventBus ?? new EventEmitter()
 
-    // Server-side client: uses withFeePayer with sign-and-broadcast policy.
-    // The Moderato fee payer relay does NOT support eth_signRawTransaction (sign-only),
-    // so we must forward the whole tx to the relay directly (sign-and-broadcast).
+    // Server-side client: routes send-tx methods to the fee payer relay (which co-signs
+    // and broadcasts type-0x76 txs with feePayerSignature=null), all else to RPC.
     const getServerClient = () => createClient({
       chain: tempoModerato,
-      transport: withFeePayer(
-        http(RPC_URL),
-        http(FEE_PAYER_URL),
-        { policy: 'sign-and-broadcast' },
-      ),
+      transport: custom<any>({
+        async request({ method, params }: { method: string; params?: unknown[] }) {
+          if (method === 'eth_sendRawTransactionSync' || method === 'eth_sendRawTransaction') {
+            const res = await fetch(FEE_PAYER_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ jsonrpc: '2.0', id: Date.now(), method, params }),
+            })
+            const json = await res.json() as { result: unknown; error?: { message: string } }
+            if (json.error) throw new Error(json.error.message)
+            return json.result
+          }
+          const res = await fetch(RPC_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', id: Date.now(), method, params }),
+          })
+          const json = await res.json() as { result: unknown; error?: { message: string } }
+          if (json.error) throw new Error(json.error.message)
+          return json.result
+        },
+      }),
     })
 
     this.mppx = Mppx.create({
@@ -107,14 +122,18 @@ export abstract class AgentBase {
       transport: custom<any>({
         async request({ method, params }: { method: string; params?: unknown }) {
           if (method === 'eth_estimateGas') return '0x50000'  // 327k gas; fee payer covers it
-          const res = await fetch(RPC_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-          })
-          const json = await res.json() as { result: unknown; error?: { message: string } }
-          if (json.error) throw new Error(json.error.message)
-          return json.result
+          for (let attempt = 0; attempt < 5; attempt++) {
+            const res = await fetch(RPC_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ jsonrpc: '2.0', id: Date.now(), method, params }),
+            })
+            const json = await res.json() as { result: unknown; error?: { message: string } }
+            if (!json.error) return json.result
+            if (!json.error.message.includes('rate limit')) throw new Error(json.error.message)
+            await new Promise(r => setTimeout(r, 100 * (attempt + 1)))
+          }
+          throw new Error('RPC rate-limited after retries')
         },
       }),
     })
@@ -150,7 +169,7 @@ export abstract class AgentBase {
       this.mppx.charge({
         amount: this.currentPrice.toString(),
         currency: PATHUSD,
-        decimals: PATHUSD_DECIMALS,
+        decimals: 0,  // amount is already in base units (bigint); decimals=0 skips parseUnits scaling
         recipient: this.address,
         description,
       })(req, res, countingNext)
