@@ -277,8 +277,20 @@
     async function pollRegistry() {
       try {
         const agents = await (await fetch(`${BASE}/agents`)).json()
+        const registryIds = new Set(agents.map(a => a.id))
+
+        // Remove nodes no longer in registry (stale after process restart)
+        const before = nodes.length
+        const removed = new Set(nodes.filter(n => !registryIds.has(n.id)).map(n => n.id))
+        if (removed.size) {
+          nodes.splice(0, nodes.length, ...nodes.filter(n => !removed.has(n.id)))
+          links.splice(0, links.length, ...links.filter(l =>
+            !removed.has(l.source?.id ?? l.source) && !removed.has(l.target?.id ?? l.target)
+          ))
+        }
+
         const known = new Set(nodes.map(n => n.id))
-        let newNodes = false
+        let newNodes = before !== nodes.length
         agents.forEach(a => {
           if (!known.has(a.id)) {
             nodes.push({ id: a.id, type: a.type, address: a.address, url: a.url, x: 300 + Math.random()*200, y: 200 + Math.random()*200 })
@@ -369,11 +381,15 @@
         document.getElementById('win-display').style.display = 'none'
         document.getElementById('btn-pause').style.display = ''
         document.getElementById('btn-resume').style.display = 'none'
-        // Reset local state
+        // Reset local state including graph nodes/links
         Object.keys(nodeStats).forEach(k => delete nodeStats[k])
+        nodes.length = 0
+        links.length = 0
+        if (simulation) { simulation.stop(); simulation = null }
         priceHistory.goods.length = 0
         priceHistory.products.length = 0
         document.getElementById('events-list').innerHTML = ''
+        renderGraph()
       } else {
         addFeedEvent(ev)
         if (ev.type === 'payment') flashLink(ev.from, ev.to)
