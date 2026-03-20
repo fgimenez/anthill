@@ -213,7 +213,7 @@
           const balB = Number(nodeStats[b.id]?.balance ?? 0)
           return balB - balA
         })
-        agents.forEach(a => {
+        agents.filter(a => a.type !== 'market').forEach(a => {
           const stats = nodeStats[a.id]
           const balance = stats?.balance ?? '—'
           const txCount = stats?.txCount ?? 0

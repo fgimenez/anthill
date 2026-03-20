@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { AgentBase, AgentConfig, decide } from './base.js'
+import { AgentBase, AgentConfig, decide, cheapest } from './base.js'
 import { getRandomStrategy } from './prompts.js'
 import { INITIAL_PRODUCTS_PRICE, MIN_PRICE } from '../constants.js'
 
@@ -7,6 +7,7 @@ export { isMarginPositive }
 
 export const ProcessorActionSchema = z.object({
   action: z.enum(['buy_goods_and_sell', 'skip', 'raise_price', 'lower_price']),
+  producer_url: z.string().nullish(),
   reasoning: z.string().optional(),
 })
 type ProcessorAction = z.infer<typeof ProcessorActionSchema>
@@ -45,6 +46,23 @@ export class ProcessorAgent extends AgentBase {
       } catch { /* non-fatal */ }
     }
 
+    // Fetch producers with current prices so LLM can pick the best one
+    let producers: Array<{ url: string; price: string }> = []
+    const registryUrl = this.config.registryUrl
+    if (registryUrl) {
+      try {
+        const agents = await (await fetch(`${registryUrl}/agents`)).json() as Array<{ type: string; url: string }>
+        producers = await Promise.all(
+          agents.filter(a => a.type === 'producer').map(async a => {
+            try {
+              const s = await (await fetch(`${a.url}/status`)).json() as { currentPrice?: string }
+              return { url: a.url, price: s.currentPrice ?? '999999999999' }
+            } catch { return { url: a.url, price: '999999999999' } }
+          })
+        )
+      } catch { /* non-fatal */ }
+    }
+
     const action = await decide<ProcessorAction>(
       this.strategy.prompt,
       {
@@ -52,16 +70,16 @@ export class ProcessorAgent extends AgentBase {
         requestsThisTick: this.requestsThisTick,
         goodsBid,
         productsBid,
-        marketUrl: this.marketUrl ?? null,
+        producers,
       },
       ProcessorActionSchema,
       { action: 'skip' },
     )
 
-    await this.tickWithAction(action.action)
+    await this.tickWithAction(action.action, action.producer_url ?? undefined)
   }
 
-  async tickWithAction(action: string): Promise<void> {
+  async tickWithAction(action: string, producerUrl?: string): Promise<void> {
     this.emitDecision(action)
     if (action === 'raise_price') {
       this.currentPrice = this.currentPrice * 105n / 100n
@@ -71,19 +89,22 @@ export class ProcessorAgent extends AgentBase {
       this.currentPrice = lowered < MIN_PRICE ? MIN_PRICE : lowered
       this.emitPriceChange()
     } else if (action === 'buy_goods_and_sell') {
-      await this.buyGoodsAndSell()
+      await this.buyGoodsAndSell(producerUrl)
     }
   }
 
-  private async buyGoodsAndSell(): Promise<void> {
+  private async buyGoodsAndSell(producerUrl?: string): Promise<void> {
     const registryUrl = this.config.registryUrl
     if (!registryUrl) return
     try {
-      const agentsRes = await fetch(`${registryUrl}/agents`)
-      const agents = await agentsRes.json() as Array<{ type: string; url: string }>
-      const producer = agents.find(a => a.type === 'producer')
-      if (!producer) return
-      await this.mppFetch(`${producer.url}/produce`)
+      let url = producerUrl
+      if (!url) {
+        const agents = await (await fetch(`${registryUrl}/agents`)).json() as Array<{ type: string; url: string }>
+        const producer = await cheapest(agents, 'producer')
+        if (!producer) return
+        url = producer.url
+      }
+      await this.mppFetch(`${url}/produce`)
       if (this.marketUrl) {
         await this.mppFetch(`${this.marketUrl}/buy-order`)
       }

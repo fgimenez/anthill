@@ -338,6 +338,26 @@ export abstract class AgentBase {
   }
 }
 
+/** Pick the agent of `type` with the lowest current price (free status check before paying). */
+export async function cheapest(
+  agents: Array<{ type: string; url: string }>,
+  type: string,
+): Promise<{ type: string; url: string } | undefined> {
+  const candidates = agents.filter(a => a.type === type)
+  if (candidates.length === 0) return undefined
+  if (candidates.length === 1) return candidates[0]
+  const withPrices = await Promise.all(candidates.map(async a => {
+    try {
+      const status = await (await fetch(`${a.url}/status`)).json() as { currentPrice?: string }
+      return { agent: a, price: BigInt(status.currentPrice ?? '999999999999999') }
+    } catch {
+      return { agent: a, price: 999999999999999n }
+    }
+  }))
+  withPrices.sort((a, b) => (a.price < b.price ? -1 : a.price > b.price ? 1 : 0))
+  return withPrices[0].agent
+}
+
 function adjustPrice(current: bigint, requestsThisTick: number): bigint {
   if (requestsThisTick > 2) return current * 105n / 100n
   if (requestsThisTick === 0) return current * 95n / 100n < MIN_PRICE ? MIN_PRICE : current * 95n / 100n

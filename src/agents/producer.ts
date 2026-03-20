@@ -29,9 +29,27 @@ export class ProducerAgent extends AgentBase {
   }
 
   protected async tick() {
+    let goodsBid = '0'
+    const registryUrl = this.config.registryUrl
+    if (registryUrl) {
+      try {
+        const agents = await (await fetch(`${registryUrl}/agents`)).json() as Array<{ type: string; url: string }>
+        const market = agents.find(a => a.type === 'market')
+        if (market) {
+          const prices = await (await fetch(`${market.url}/prices`)).json() as { goodsBid: string }
+          goodsBid = prices.goodsBid
+        }
+      } catch { /* non-fatal */ }
+    }
+
     const action = await decide<ProducerAction>(
       this.strategy.prompt,
-      { currentPrice: this.currentPrice.toString(), requestsThisTick: this.requestsThisTick },
+      {
+        currentPrice: this.currentPrice.toString(),
+        requestsThisTick: this.requestsThisTick,
+        goodsBid,
+        balance: this.status().balance,
+      },
       ProducerActionSchema,
       { action: 'hold' },
     )
