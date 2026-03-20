@@ -65,6 +65,8 @@ export abstract class AgentBase {
   private _paused = false
   private tickInterval?: ReturnType<typeof setInterval>
   private cachedBalance = '0'
+  private lastOnChainRaw = 0n    // last confirmed on-chain balance in base units
+  private pendingReceived = 0n   // received but not yet confirmed on-chain (base units)
 
   constructor(protected config: AgentConfig, initialPrice: bigint) {
     const account = privateKeyToAccount(config.privateKey)
@@ -124,7 +126,13 @@ export abstract class AgentBase {
   // Returns an Express middleware that issues a 402 challenge at the current price
   protected charged(description: string) {
     return (req: express.Request, res: express.Response, next: express.NextFunction) => {
-      const countingNext: express.NextFunction = (...args) => { this.txCount++; next(...args) }
+      const countingNext: express.NextFunction = (...args) => {
+        this.txCount++
+        // Immediately reflect received payment in balance (exact amount known here)
+        this.pendingReceived += this.currentPrice
+        this.cachedBalance = ((this.lastOnChainRaw + this.pendingReceived) / 1_000_000n).toString()
+        next(...args)
+      }
       this.mppx.charge({
         amount: this.currentPrice.toString(),
         currency: PATHUSD,
@@ -148,6 +156,8 @@ export abstract class AgentBase {
         agentType: this.config.type,
         ts: Date.now(),
       })
+      // Refresh balance async — we don't know exact amount charged, so re-read from chain
+      this.refreshBalance().catch(() => {})
       return res
     } catch (e) {
       console.warn(`[mppFetch] ${this.config.type} → ${url.replace(/.*localhost:\d+/, '')} : ${(e as Error).message?.slice(0, 120)}`)
@@ -204,8 +214,12 @@ export abstract class AgentBase {
     this.txCount = 0
     this.currentPrice = this.initialPrice
     this.requestsThisTick = 0
+    this.lastOnChainRaw = 0n
+    this.pendingReceived = 0n
+    this.cachedBalance = '0'
     // Restart tick interval if it was cleared (e.g. after executeExit)
     if (!this.tickInterval) this.startTicking()
+    this.refreshBalance().catch(() => {})
   }
 
   protected evaluateMergeOffer(_amount: string): boolean {
@@ -250,21 +264,31 @@ export abstract class AgentBase {
     }, this.config.tickIntervalMs)
   }
 
+  async refreshBalance(): Promise<void> {
+    try {
+      const data = '0x70a08231' + this.address.slice(2).padStart(64, '0')
+      const res = await fetch(RPC_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: Date.now(), method: 'eth_call', params: [{ to: PATHUSD, data }, 'latest'] }),
+      })
+      const json = await res.json() as { result: string; error?: { message: string } }
+      if (!json.result || json.error) return
+      const onChain = BigInt(json.result)
+      // If chain went up since last read, pending receives have been confirmed — clear them
+      if (this.lastOnChainRaw > 0n && onChain > this.lastOnChainRaw) {
+        const confirmed = onChain - this.lastOnChainRaw
+        this.pendingReceived = this.pendingReceived > confirmed ? this.pendingReceived - confirmed : 0n
+      }
+      this.lastOnChainRaw = onChain
+      // Display = on-chain + unconfirmed receives (senders' balance drops are chain-only)
+      this.cachedBalance = ((onChain + this.pendingReceived) / 1_000_000n).toString()
+    } catch { /* non-fatal */ }
+  }
+
   private startBalancePolling() {
-    const refresh = async () => {
-      try {
-        const data = '0x70a08231' + this.address.slice(2).padStart(64, '0')
-        const res = await fetch(RPC_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: PATHUSD, data }, 'latest'] }),
-        })
-        const json = await res.json() as { result: string }
-        this.cachedBalance = (BigInt(json.result) / 1_000_000n).toString()
-      } catch { /* non-fatal */ }
-    }
-    refresh()  // fetch immediately on start
-    setInterval(refresh, 5_000)
+    this.refreshBalance()  // fetch immediately on start
+    setInterval(() => this.refreshBalance(), 5_000)
   }
 
   start() {
