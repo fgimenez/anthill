@@ -14,6 +14,10 @@ export class RegistryServer {
       this.registry.register(req.body)
       res.status(201).json({ ok: true })
     })
+    this.app.post('/agents/:id/exit', (req, res) => {
+      this.registry.recordExit(req.params.id, req.body.exitScore ?? '0')
+      res.json({ ok: true })
+    })
     this.app.get('/leaderboard', (_req, res) => res.json(this.registry.list()))
   }
 }

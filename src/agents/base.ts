@@ -57,6 +57,8 @@ export abstract class AgentBase {
   protected requestsThisTick = 0
   protected txCount = 0
   protected lastTx?: string
+  protected active = true
+  private tickInterval?: ReturnType<typeof setInterval>
 
   constructor(protected config: AgentConfig, initialPrice: bigint) {
     const account = privateKeyToAccount(config.privateKey)
@@ -105,16 +107,8 @@ export abstract class AgentBase {
     this.app.post('/merge-offer', this.charged('Merge offer evaluation'), (req, res) => {
       const amount = req.body?.amount ?? '0'
       const accept = this.evaluateMergeOffer(amount)
-      if (accept) {
-        eventBus.emit('event', {
-          type: 'merge',
-          from: this.address,
-          amount,
-          agentType: this.config.type,
-          ts: Date.now(),
-        })
-      }
       res.json({ accept })
+      if (accept) setImmediate(() => this.executeExit(amount).catch(() => {}))
     })
     this.setup()
   }
@@ -193,6 +187,22 @@ export abstract class AgentBase {
     return false  // default: reject; subclasses override
   }
 
+  protected async executeExit(buyout: string): Promise<void> {
+    this.active = false
+    clearInterval(this.tickInterval)
+    const exitScore = buyout
+    const id = `${this.config.type}-${this.address}`
+    if (this.config.registryUrl) {
+      await fetch(`${this.config.registryUrl}/agents/${encodeURIComponent(id)}/exit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ exitScore }),
+      }).catch(() => {})
+    }
+    eventBus.emit('event', { type: 'merge', from: this.address, amount: buyout, agentType: this.config.type, ts: Date.now() })
+    console.log(`[${this.config.type}] acquired — exit score: ${exitScore} pathUSD`)
+  }
+
   status() {
     return {
       type: this.config.type,
@@ -200,7 +210,7 @@ export abstract class AgentBase {
       txCount: this.txCount,
       lastTx: this.lastTx,
       currentPrice: this.currentPrice.toString(),
-      active: true,
+      active: this.active,
     }
   }
 
@@ -212,7 +222,8 @@ export abstract class AgentBase {
           .catch(() => { /* non-fatal */ })
       }
     })
-    setInterval(async () => {
+    this.tickInterval = setInterval(async () => {
+      if (!this.active) return
       try { await this.tick() } catch (e) { /* swallow tick errors */ }
       this.requestsThisTick = 0
     }, this.config.tickIntervalMs)
