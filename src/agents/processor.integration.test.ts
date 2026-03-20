@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import request from 'supertest'
 import { ProcessorAgent, ProcessorActionSchema } from './processor.js'
 
-const TEST_KEY = '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a'
+const TEST_KEY = '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a' as `0x${string}`
 const config = { type: 'processor' as const, port: 0, privateKey: TEST_KEY, tickIntervalMs: 60000 }
 
 describe('ProcessorAgent', () => {

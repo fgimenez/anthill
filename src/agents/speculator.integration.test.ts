@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import request from 'supertest'
 
-const TEST_KEY = '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926b'
+const TEST_KEY = '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926b' as `0x${string}`
 const config = { type: 'speculator' as const, port: 0, privateKey: TEST_KEY, tickIntervalMs: 60000 }
 
 describe('SpeculatorAgent', () => {

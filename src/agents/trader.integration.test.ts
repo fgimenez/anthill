@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import request from 'supertest'
 import { TraderAgent, TraderActionSchema } from './trader.js'
 
-const TEST_KEY = '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6'
+const TEST_KEY = '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6' as `0x${string}`
 const config = { type: 'trader' as const, port: 0, privateKey: TEST_KEY, tickIntervalMs: 60000 }
 
 describe('TraderAgent', () => {

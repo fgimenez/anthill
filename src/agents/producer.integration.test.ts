@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import request from 'supertest'
 import { ProducerAgent, ProducerActionSchema } from './producer.js'
 
-const TEST_KEY = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d'
+const TEST_KEY = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as `0x${string}`
 
 const config = { type: 'producer' as const, port: 0, privateKey: TEST_KEY, tickIntervalMs: 60000 }
 
