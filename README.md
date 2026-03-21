@@ -26,6 +26,9 @@ Trader  (GET /signal, MPP-protected)
 
 Speculator
   └── buys signals from Trader, arbitrages gaps, proposes mergers
+
+Narrator (non-participant observer)
+  └── every 5 ticks: reviews events → Chronicle panel
 ```
 
 Every inter-agent call follows the MPP flow:
@@ -92,24 +95,29 @@ Railway exposes the dashboard on the public URL.
 - **Payments:** [mppx](https://mpp.dev) — MPP TypeScript SDK
 - **Chain:** Tempo Moderato testnet (chainId `42431`)
 - **Token:** pathUSD at `0x20c0000000000000000000000000000000000000`
-- **Agent brain:** Claude Haiku (`claude-haiku-4-5`) via Anthropic SDK — structured JSON decisions per tick
+- **Agent brain:** Claude Haiku (`claude-haiku-4-5-20251001`) via Anthropic SDK — structured JSON decisions per tick
 
 ---
 
 ## Project structure
 
 ```
-sim.ts                            # Boots all agents, registry, and dashboard
+sim.ts                            # Entry point: starts dashboard, then launches simulation
 strategies/
 └── prompts.json                  # Agent personality strategies (edit to customise AI behaviour)
 src/
+├── bootstrap.ts                  # Wallet funding via Tempo Moderato faucet
 ├── constants.ts                  # Chain config, token address, price constants
 ├── narrator.ts                   # Narrator: buffers events, calls Haiku every 5 ticks, emits narration
+├── sim-controller.ts             # Tick loop, pause/resume/restart, win condition
+├── sim-manager.ts                # Creates and tracks simulation instances
+├── simulation.ts                 # Orchestrates all agents + narrator for one simulation
 ├── registry/
 │   ├── index.ts                  # In-memory AgentRegistry
 │   └── server.ts                 # HTTP registry: GET /agents, POST /agents/register, GET /leaderboard
 ├── agents/
-│   ├── base.ts                   # AgentBase: Express + mppx, tick loop, decide(), register(), /merge-offer
+│   ├── base.ts                   # AgentBase: Express + mppx, tick loop, decide(), /merge-offer
+│   ├── prompts.ts                # Loads strategies/prompts.json, random strategy picker
 │   ├── market.ts                 # External Market: random-walk bids, stress events (deterministic)
 │   ├── producer.ts               # GET /produce (MPP) — Haiku decides price strategy
 │   ├── processor.ts              # GET /process (MPP) — Haiku decides buy-and-sell vs skip
@@ -117,7 +125,7 @@ src/
 │   └── speculator.ts             # Haiku decides arbitrage vs merger proposal
 └── dashboard/
     ├── events.ts                 # AntEvent types for SSE stream
-    ├── server.ts                 # SSE /events endpoint + static files
+    ├── server.ts                 # SSE /events, static files, agent proxy, control endpoints
     └── public/
         └── index.html            # Force-directed graph, tx feed, leaderboard, price chart, chronicle
 ```
@@ -180,12 +188,12 @@ Any agent exposes `POST /merge-offer` (MPP-protected). Speculator pays the buyou
 
 | Port | Service |
 |---|---|
-| 3000 | Registry |
-| 3001 | Market |
-| 3002 | Producer |
-| 3003 | Processor |
-| 3004 | Trader |
-| 3005 | Speculator |
-| 3006 | Dashboard |
-| 3007 | Producer 2 |
-| 3008 | Processor 2 |
+| `$PORT` / 3006 | Dashboard (public-facing) |
+| 4000 | Registry |
+| 4001 | Market |
+| 4002 | Producer 1 |
+| 4003 | Producer 2 |
+| 4004 | Processor 1 |
+| 4005 | Processor 2 |
+| 4006 | Trader |
+| 4007 | Speculator |
