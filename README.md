@@ -73,26 +73,15 @@ Open **http://localhost:3006** to watch the live dashboard — force-directed ag
 
 1. Push this repo to GitHub
 2. Create a new Railway project → **Deploy from GitHub repo**
-3. Set the following environment variables in the Railway dashboard:
+3. Set one environment variable:
 
 ```
 ANTHROPIC_API_KEY=sk-ant-...
-
-PRIVATE_KEY_MARKET=0x...
-PRIVATE_KEY_PRODUCER=0x...
-PRIVATE_KEY_PRODUCER_2=0x...
-PRIVATE_KEY_PROCESSOR=0x...
-PRIVATE_KEY_PROCESSOR_2=0x...
-PRIVATE_KEY_TRADER=0x...
-PRIVATE_KEY_SPECULATOR=0x...
 ```
 
-4. Fund each wallet address with pathUSD before the demo:
-```bash
-cast rpc tempo_fundAddress <ADDRESS> --rpc-url https://rpc.moderato.tempo.xyz
-```
+That's it. On startup, Anthill generates fresh wallets for all agents and auto-funds each one with 1,000,000 pathUSD via the Tempo Moderato faucet. No manual key management needed.
 
-Railway exposes the dashboard on the public URL. The registry is at `<public-url>/agents`.
+Railway exposes the dashboard on the public URL.
 
 ---
 
@@ -143,6 +132,40 @@ src/
 | **Processor** | `GET /process` | Claude Haiku | buys goods, sells products |
 | **Trader** | `GET /signal` | Claude Haiku | observes prices, sells signals |
 | **Speculator** | — | Claude Haiku | arbitrage + acquisitions |
+
+### Strategies
+
+Each AI agent archetype ships with three selectable strategies, switchable live from the dashboard control bar.
+
+**Producer**
+| Strategy | Behaviour |
+|---|---|
+| `aggressive` | Raises prices on any demand signal; holds firm when idle — scarcity drives value |
+| `conservative` | Keeps prices just above market bid to maximise volume; never races to the bottom |
+| `market-follower` | Tracks demand closely; drops toward the market floor when idle, undercuts competitors |
+
+**Processor**
+| Strategy | Behaviour |
+|---|---|
+| `margin-focused` | Only buys goods when spread is ≥ 50% above cost; waits for ideal conditions |
+| `volume-focused` | Buys whenever margin is positive, even slim; wins through throughput |
+| `adaptive` | Raises prices on high demand, lowers when slow; picks best-margin producer each tick |
+
+**Trader**
+| Strategy | Behaviour |
+|---|---|
+| `frequent` | Refreshes signal every tick by buying from cheapest producer + processor |
+| `selective` | Only buys spot when signal is stale (>30s) or buyers are waiting; conserves capital |
+| `premium` | Positions as high-quality intel; raises prices aggressively, still buys cheap |
+
+**Speculator**
+| Strategy | Behaviour |
+|---|---|
+| `arbitrageur` | Spots price gaps between producers and market bid; prefers clean arbitrage over mergers |
+| `acquirer` | Empire-builder; targets weakened agents for acquisition, uses arbitrage to build capital |
+| `balanced` | Mixes arbitrage and mergers based on tick-by-tick opportunity |
+
+Strategies are defined in [`strategies/prompts.json`](strategies/prompts.json) — edit the prompts directly to customise agent personalities.
 
 ### Merge mechanic
 
