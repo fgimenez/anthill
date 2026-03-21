@@ -150,9 +150,9 @@
 
     function nodeRadius(d) {
       const stats = nodeStats[d.id]
-      if (!stats) return 34
+      if (!stats) return 50
       const balScore = Math.log1p(Number(stats.balance ?? 0) / 1e8) * 5
-      return Math.max(28, Math.min(72, 28 + balScore))
+      return Math.max(44, Math.min(90, 44 + balScore))
     }
 
     function renderGraph() {
