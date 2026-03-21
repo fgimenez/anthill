@@ -6,7 +6,7 @@
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #0a0a0a; color: #e0e0e0; font-family: 'Courier New', monospace; height: 100vh; display: grid; grid-template-columns: 1fr 320px; grid-template-rows: auto auto 1fr auto; }
+    body { background: #0a0a0a; color: #e0e0e0; font-family: 'Courier New', monospace; height: 100vh; display: grid; grid-template-columns: 1fr 320px; grid-template-rows: auto auto 1fr auto auto; }
 
     header { grid-column: 1/-1; padding: 12px 20px; border-bottom: 1px solid #222; display: flex; align-items: center; gap: 16px; }
     header h1 { font-size: 1.1rem; color: #fff; }
@@ -46,6 +46,12 @@
     .event.price-change { color: #a3e635; }
     .event.decision { color: #888; }
     @keyframes fadein { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+    #chronicle { grid-column: 1/-1; border-top: 1px solid #222; background: #060606; display: flex; flex-direction: column; height: 160px; }
+    #chronicle h2 { font-size: 0.7rem; color: #555; text-transform: uppercase; letter-spacing: 2px; padding: 8px 20px 4px; flex-shrink: 0; }
+    #chronicle-entries { flex: 1; overflow-y: scroll; padding: 0 20px 10px; display: flex; flex-direction: column; gap: 10px; }
+    .chronicle-entry { font-size: 0.82rem; line-height: 1.6; color: #c0a96e; padding: 8px 12px; border-left: 2px solid #3a2e1a; background: #0d0b07; }
+    .chronicle-entry .tick-label { font-size: 0.65rem; color: #555; margin-bottom: 4px; }
 
     footer { grid-column: 1/-1; padding: 6px 20px; border-top: 1px solid #222; font-size: 0.65rem; color: #333; }
 
@@ -100,6 +106,11 @@
       <h2>Market Prices</h2>
       <canvas id="price-canvas"></canvas>
     </div>
+  </div>
+
+  <div id="chronicle">
+    <h2>Chronicle</h2>
+    <div id="chronicle-entries"></div>
   </div>
 
   <footer>MPP · Tempo Moderato · Claude Haiku</footer>
@@ -245,6 +256,24 @@
       if (list.children.length > 50) list.lastChild.remove()
     }
 
+    // ── Chronicle ──────────────────────────────────────────────────────────────
+    function addChronicleEntry(ev) {
+      const container = document.getElementById('chronicle-entries')
+      const entry = document.createElement('div')
+      entry.className = 'chronicle-entry'
+      const label = document.createElement('div')
+      label.className = 'tick-label'
+      label.textContent = `Tick ${ev.tick} · ${new Date(ev.ts).toLocaleTimeString()}`
+      entry.appendChild(label)
+      const text = document.createElement('div')
+      text.textContent = ev.text
+      entry.appendChild(text)
+      container.appendChild(entry)
+      // Auto-scroll to bottom only if user is already near the bottom
+      const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 60
+      if (atBottom) container.scrollTop = container.scrollHeight
+    }
+
     // ── Price Chart ────────────────────────────────────────────────────────────
     function drawPriceChart() {
       const canvas = document.getElementById('price-canvas')
@@ -387,7 +416,10 @@
         priceHistory.goods.length = 0
         priceHistory.products.length = 0
         document.getElementById('events-list').innerHTML = ''
+        document.getElementById('chronicle-entries').innerHTML = ''
         renderGraph()
+      } else if (ev.type === 'narration') {
+        addChronicleEntry(ev)
       } else {
         addFeedEvent(ev)
         if (ev.type === 'payment') flashLink(ev.from, ev.to)

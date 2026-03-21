@@ -104,6 +104,7 @@ strategies/
 └── prompts.json                  # Agent personality strategies (edit to customise AI behaviour)
 src/
 ├── constants.ts                  # Chain config, token address, price constants
+├── narrator.ts                   # Narrator: buffers events, calls Haiku every 5 ticks, emits narration
 ├── registry/
 │   ├── index.ts                  # In-memory AgentRegistry
 │   └── server.ts                 # HTTP registry: GET /agents, POST /agents/register, GET /leaderboard
@@ -115,10 +116,10 @@ src/
 │   ├── trader.ts                 # GET /signal (MPP) — Haiku decides spot-buy and signal packaging
 │   └── speculator.ts             # Haiku decides arbitrage vs merger proposal
 └── dashboard/
-    ├── events.ts                 # Singleton EventEmitter for payment/merge/price-change events
+    ├── events.ts                 # AntEvent types for SSE stream
     ├── server.ts                 # SSE /events endpoint + static files
     └── public/
-        └── index.html            # Force-directed graph, tx feed, leaderboard, price chart
+        └── index.html            # Force-directed graph, tx feed, leaderboard, price chart, chronicle
 ```
 
 ---
@@ -166,6 +167,10 @@ Each AI agent archetype ships with three selectable strategies, switchable live 
 | `balanced` | Mixes arbitrage and mergers based on tick-by-tick opportunity |
 
 Strategies are defined in [`strategies/prompts.json`](strategies/prompts.json) — edit the prompts directly to customise agent personalities.
+
+### Narrator & Chronicle
+
+Every 5 ticks, a non-participant **Narrator** reviews everything that happened — payment volumes, price swings, mergers, agent decisions — and calls Claude Haiku to produce a 2-3 sentence financial-news-style commentary. The result appears in the **Chronicle** panel at the bottom of the dashboard: a scrollable, chronological record of the simulation's story from tick 1 to the end. Read it top to bottom to follow the drama as it unfolded.
 
 ### Merge mechanic
 

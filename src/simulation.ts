@@ -10,6 +10,7 @@ import { TraderAgent } from './agents/trader.js'
 import { SpeculatorAgent } from './agents/speculator.js'
 import { getPathUSDBalance, fundAddress } from './bootstrap.js'
 import { WIN_TICKS } from './constants.js'
+import { Narrator } from './narrator.js'
 import type { AgentBase } from './agents/base.js'
 
 const TICK = Number(process.env.TICK_INTERVAL_MS ?? 10000)
@@ -51,6 +52,8 @@ export class Simulation {
       this.eventBus,
       () => this.refundWallets(),
     )
+
+    new Narrator(this.eventBus)
 
     this.agents = [
       new MarketAgent    (base('market',     1, 0)),
