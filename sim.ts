@@ -13,11 +13,11 @@ const DASHBOARD_PORT = Number(process.env.PORT ?? process.env.PORT_DASHBOARD ?? 
 const manager = new SimulationManager()
 const dashboard = new DashboardServer(manager)
 
-// Auto-create one default simulation on startup
-await manager.create('default')
-
+// Start HTTP server first so Railway healthcheck passes immediately,
+// then create the simulation (wallet funding involves slow RPC calls)
 dashboard.app.listen(DASHBOARD_PORT, () => {
   console.log(chalk.cyan(`[DASHBOARD] :${DASHBOARD_PORT}`))
   console.log(chalk.dim(`            http://localhost:${DASHBOARD_PORT}/`))
   console.log(chalk.dim(`            http://localhost:${DASHBOARD_PORT}/sim/default\n`))
+  manager.create('default').catch(e => console.error('[sim] failed to start:', e))
 })
