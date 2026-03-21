@@ -277,11 +277,12 @@
     async function pollRegistry() {
       try {
         const agents = await (await fetch(`${BASE}/agents`)).json()
-        const registryIds = new Set(agents.map(a => a.id))
+        // Only active, non-market agents belong in the graph
+        const graphIds = new Set(agents.filter(a => a.type !== 'market' && a.active).map(a => a.id))
 
-        // Remove nodes no longer in registry (stale after process restart)
+        // Remove nodes that left the graph (acquired, busted, or stale after restart)
         const before = nodes.length
-        const removed = new Set(nodes.filter(n => !registryIds.has(n.id)).map(n => n.id))
+        const removed = new Set(nodes.filter(n => !graphIds.has(n.id)).map(n => n.id))
         if (removed.size) {
           nodes.splice(0, nodes.length, ...nodes.filter(n => !removed.has(n.id)))
           links.splice(0, links.length, ...links.filter(l =>
@@ -291,7 +292,7 @@
 
         const known = new Set(nodes.map(n => n.id))
         let newNodes = before !== nodes.length
-        agents.filter(a => a.type !== 'market').forEach(a => {
+        agents.filter(a => a.type !== 'market' && a.active).forEach(a => {
           if (!known.has(a.id)) {
             nodes.push({ id: a.id, type: a.type, address: a.address, url: a.url, x: 300 + Math.random()*200, y: 200 + Math.random()*200 })
             newNodes = true
