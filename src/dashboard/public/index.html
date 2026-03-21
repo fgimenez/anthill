@@ -339,7 +339,8 @@
     // ── Market Prices Polling ──────────────────────────────────────────────────
     async function pollMarketPrices() {
       try {
-        const market = nodes.find(n => n.type === 'market')
+        const agents = await (await fetch(`${BASE}/agents`)).json()
+        const market = agents.find(a => a.type === 'market')
         if (!market) return
         const prices = await (await fetch(`${market.url}/prices`)).json()
         const g = Number(prices.goodsBid) / 1e6

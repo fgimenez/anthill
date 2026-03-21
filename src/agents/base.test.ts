@@ -8,16 +8,16 @@ describe('adjustPrice', () => {
   })
 
   it('raises price by 5% when requests exceed 2', () => {
-    expect(adjustPrice(1_000_000_000n, 3)).toBe(1_050_000_000n)
+    expect(adjustPrice(10_000_000_000n, 3)).toBe(10_500_000_000n)
   })
 
   it('lowers price by 5% when no requests', () => {
-    expect(adjustPrice(1_000_000_000n, 0)).toBe(950_000_000n)
+    expect(adjustPrice(10_000_000_000n, 0)).toBe(9_500_000_000n)
   })
 
   it('keeps price unchanged for 1 or 2 requests', () => {
-    expect(adjustPrice(1_000_000_000n, 1)).toBe(1_000_000_000n)
-    expect(adjustPrice(1_000_000_000n, 2)).toBe(1_000_000_000n)
+    expect(adjustPrice(10_000_000_000n, 1)).toBe(10_000_000_000n)
+    expect(adjustPrice(10_000_000_000n, 2)).toBe(10_000_000_000n)
   })
 
   it('never drops below MIN_PRICE', () => {
