@@ -133,10 +133,10 @@
 
     function initSimulation(w, h) {
       simulation = d3.forceSimulation(nodes)
-        .force('link', d3.forceLink(links).id(d => d.id).distance(120))
-        .force('charge', d3.forceManyBody().strength(-300))
+        .force('link', d3.forceLink(links).id(d => d.id).distance(180))
+        .force('charge', d3.forceManyBody().strength(-600))
         .force('center', d3.forceCenter(w / 2, h / 2))
-        .force('collision', d3.forceCollide(40))
+        .force('collision', d3.forceCollide(d => nodeRadius(d) + 8))
         .on('tick', ticked)
     }
 
@@ -150,9 +150,9 @@
 
     function nodeRadius(d) {
       const stats = nodeStats[d.id]
-      if (!stats) return 30
-      const balScore = Math.log1p(Number(stats.balance ?? 0) / 1e9) * 8
-      return Math.max(22, Math.min(70, 22 + balScore))
+      if (!stats) return 34
+      const balScore = Math.log1p(Number(stats.balance ?? 0) / 1e8) * 5
+      return Math.max(28, Math.min(72, 28 + balScore))
     }
 
     function renderGraph() {
@@ -291,7 +291,7 @@
 
         const known = new Set(nodes.map(n => n.id))
         let newNodes = before !== nodes.length
-        agents.forEach(a => {
+        agents.filter(a => a.type !== 'market').forEach(a => {
           if (!known.has(a.id)) {
             nodes.push({ id: a.id, type: a.type, address: a.address, url: a.url, x: 300 + Math.random()*200, y: 200 + Math.random()*200 })
             newNodes = true
@@ -304,10 +304,6 @@
             if (!a || !b || a.id === b.id) return
             if (!links.find(l => (l.source?.id ?? l.source) === a.id && (l.target?.id ?? l.target) === b.id))
               links.push({ source: a.id, target: b.id, confirmed: false })
-          }
-          for (const market of byType('market')) {
-            for (const p of byType('producer'))   addStructural(market, p)
-            for (const p of byType('processor'))  addStructural(market, p)
           }
           for (const trader of byType('trader')) {
             for (const p of byType('producer'))   addStructural(trader, p)
