@@ -8,11 +8,11 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #0a0a0a; color: #e0e0e0; font-family: 'Courier New', monospace; height: 100vh; display: grid; grid-template-columns: 1fr 320px; grid-template-rows: auto auto auto 1fr auto auto; }
 
-    header { grid-column: 1/-1; padding: 12px 20px; border-bottom: 1px solid #222; display: flex; align-items: center; gap: 16px; }
+    header { grid-column: 1/-1; grid-row: 1; padding: 12px 20px; border-bottom: 1px solid #222; display: flex; align-items: center; gap: 16px; }
     header h1 { font-size: 1.1rem; color: #fff; }
     header .status { font-size: 0.75rem; color: #555; }
 
-    #control-bar { grid-column: 1/-1; padding: 8px 20px; border-bottom: 1px solid #222; background: #0d0d0d; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    #control-bar { grid-column: 1/-1; grid-row: 3; padding: 8px 20px; border-bottom: 1px solid #222; background: #0d0d0d; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
     .ctrl-btn { background: #1a1a1a; color: #ccc; border: 1px solid #333; border-radius: 4px; padding: 4px 12px; font-family: inherit; font-size: 0.75rem; cursor: pointer; }
     .ctrl-btn:hover { background: #222; color: #fff; }
     .ctrl-btn:disabled { opacity: 0.4; cursor: default; }
@@ -26,10 +26,10 @@
     .strat-select:hover { border-color: #444; }
     .ctrl-separator { width: 1px; height: 20px; background: #222; margin: 0 4px; }
 
-    #graph { position: relative; overflow: hidden; }
+    #graph { grid-column: 1; grid-row: 4; position: relative; overflow: hidden; }
     #graph svg { width: 100%; height: 100%; }
 
-    #sidebar { border-left: 1px solid #222; display: flex; flex-direction: column; overflow: hidden; }
+    #sidebar { grid-column: 2; grid-row: 4; border-left: 1px solid #222; display: flex; flex-direction: column; overflow: hidden; }
     #leaderboard { padding: 12px; border-bottom: 1px solid #222; }
     #leaderboard h2 { font-size: 0.7rem; color: #555; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
     .lb-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 0.78rem; border-bottom: 1px solid #111; }
@@ -50,13 +50,13 @@
     .event.decision { color: #888; }
     @keyframes fadein { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 
-    #chronicle { grid-column: 1/-1; border-top: 1px solid #222; background: #060606; display: flex; flex-direction: column; height: 160px; }
+    #chronicle { grid-column: 1/-1; grid-row: 5; border-top: 1px solid #222; background: #060606; display: flex; flex-direction: column; height: 160px; }
     #chronicle h2 { font-size: 0.7rem; color: #555; text-transform: uppercase; letter-spacing: 2px; padding: 8px 20px 4px; flex-shrink: 0; }
     #chronicle-entries { flex: 1; overflow-y: scroll; padding: 0 20px 10px; display: flex; flex-direction: column; gap: 10px; }
     .chronicle-entry { font-size: 0.82rem; line-height: 1.6; color: #c0a96e; padding: 8px 12px; border-left: 2px solid #3a2e1a; background: #0d0b07; }
     .chronicle-entry .tick-label { font-size: 0.65rem; color: #555; margin-bottom: 4px; }
 
-    footer { grid-column: 1/-1; padding: 6px 20px; border-top: 1px solid #222; font-size: 0.65rem; color: #333; }
+    footer { grid-column: 1/-1; grid-row: 6; padding: 6px 20px; border-top: 1px solid #222; font-size: 0.65rem; color: #333; }
 
     /* Graph nodes */
     .node circle { stroke-width: 2; cursor: pointer; }
@@ -69,7 +69,7 @@
     @keyframes winner-glow { 0%, 100% { filter: drop-shadow(0 0 6px #fbbf24); } 50% { filter: drop-shadow(0 0 22px #fbbf24); } }
 
     /* Winner banner */
-    #winner-banner { display: none; grid-column: 1/-1; padding: 10px 20px; background: linear-gradient(90deg, #0a0a0a 0%, #1a1400 40%, #0a0a0a 100%); border-bottom: 1px solid #fbbf24; text-align: center; }
+    #winner-banner { display: none; grid-column: 1/-1; grid-row: 2; padding: 10px 20px; background: linear-gradient(90deg, #0a0a0a 0%, #1a1400 40%, #0a0a0a 100%); border-bottom: 1px solid #fbbf24; text-align: center; }
     #winner-banner .trophy { font-size: 1.2rem; }
     #winner-banner .name { color: #fbbf24; font-size: 0.9rem; font-weight: bold; letter-spacing: 1px; }
     #winner-banner .reason { color: #555; font-size: 0.7rem; margin-top: 2px; }
