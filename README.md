@@ -42,6 +42,8 @@ GET /produce  →  402 + WWW-Authenticate: Payment (challenge)
 
 Each AI agent (Producer, Processor, Trader, Speculator) calls Claude Haiku once per tick with its current state. Haiku returns a structured JSON action — raise price, buy goods, skip, propose merger — and the agent executes it. Market bids follow a deterministic mean-reverting random walk with occasional stress spikes/crashes, creating boom/bust cycles the AI agents must navigate.
 
+The simulation runs for 50 ticks by default (configurable via `WIN_TICKS`). Each wallet starts with 1,000,000 pathUSD; transaction prices are sized so wallets drain meaningfully within the game window. Each node's radius grows with its balance — watch the rich get bigger and the broke shrink to a dot.
+
 ---
 
 ## Quickstart
@@ -144,7 +146,7 @@ src/
 
 ### Strategies
 
-Each AI agent archetype ships with three selectable strategies, switchable live from the dashboard control bar.
+Each AI agent has its own strategy, independently selectable live from the dashboard control bar. Producer 1 and Producer 2 can run different strategies simultaneously, as can Processor 1 and Processor 2. Strategies are randomised on each simulation start and restart.
 
 **Producer**
 | Strategy | Behaviour |
@@ -178,7 +180,7 @@ Strategies are defined in [`strategies/prompts.json`](strategies/prompts.json) �
 
 ### Narrator & Chronicle
 
-Every 5 ticks, a non-participant **Narrator** reviews everything that happened — payment volumes, price swings, mergers, agent decisions — and calls Claude Haiku to produce a 2-3 sentence financial-news-style commentary. The result appears in the **Chronicle** panel at the bottom of the dashboard: a scrollable, chronological record of the simulation's story from tick 1 to the end. Read it top to bottom to follow the drama as it unfolded.
+Every 5 ticks, a non-participant **Narrator** reviews everything that happened — payment volumes, price swings, mergers, agent decisions — and calls Claude Haiku to produce a 2-3 sentence financial-news-style commentary. The narrator refers to agents by their individual names (`producer_1`, `processor_2`, etc.) so the chronicle reads as a specific story, not a generic summary. The result appears in the **Chronicle** panel at the bottom of the dashboard: a scrollable, chronological record of the simulation's story from tick 1 to the end. Read it top to bottom to follow the drama as it unfolded.
 
 ### Merge mechanic
 

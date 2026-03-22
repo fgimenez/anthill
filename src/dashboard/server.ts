@@ -210,6 +210,20 @@ export class DashboardServer {
       res.json({ ok: true })
     })
 
+    // Per-agent strategy (label e.g. 'producer_1', 'processor_2', 'trader', 'speculator')
+    this.app.post('/sim/:id/control/strategy/agent/:label', (req, res) => {
+      const sim = simManager.get(req.params.id)
+      if (!sim) { res.status(404).end(); return }
+      const { name } = req.body as { name: string }
+      const label = req.params.label
+      const type = label.replace(/_\d+$/, '')   // producer_1 → producer
+      const strategies = PROMPTS[type]
+      const strategy = strategies?.find(s => s.name === name)
+      if (!strategy) { res.status(400).json({ error: 'unknown strategy' }); return }
+      sim.controller.setStrategyForLabel(label, strategy)
+      res.json({ ok: true })
+    })
+
     // ── Agent proxy — forwards all methods to internal agent ports ────────────
     // Parses /sim/:id/agent/:port/* manually (avoids Express 5 wildcard quirks)
     this.app.use(async (req, res, next) => {

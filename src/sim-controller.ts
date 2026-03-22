@@ -1,5 +1,6 @@
 import { EventEmitter } from 'node:events'
 import { bootstrap } from './bootstrap.js'
+import { getRandomStrategy, type AgentArchetype } from './agents/prompts.js'
 import type { AgentBase } from './agents/base.js'
 
 export class SimController {
@@ -59,7 +60,12 @@ export class SimController {
     this.tickCount = 0
     console.log('[sim] restarting — re-funding wallets…')
     await this.bootstrapFn()
-    for (const a of this.agents) a.reset()
+    for (const a of this.agents) {
+      if (a.agentType !== 'market') {
+        a.setStrategy(getRandomStrategy(a.agentType as AgentArchetype))
+      }
+      a.reset()
+    }
     this.resume()
     console.log('[sim] restarted')
     this.eventBus.emit('event', { type: 'restarted', ts: Date.now() })
@@ -68,6 +74,12 @@ export class SimController {
   setStrategyForType(type: string, strategy: { name: string; prompt: string }) {
     for (const a of this.agents) {
       if (a.agentType === type) a.setStrategy(strategy)
+    }
+  }
+
+  setStrategyForLabel(label: string, strategy: { name: string; prompt: string }) {
+    for (const a of this.agents) {
+      if (a.label === label) a.setStrategy(strategy)
     }
   }
 

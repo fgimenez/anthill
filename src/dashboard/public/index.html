@@ -85,10 +85,12 @@
     <button class="ctrl-btn" id="btn-resume" style="display:none">▶ Resume</button>
     <button class="ctrl-btn danger" id="btn-restart">↺ Restart</button>
     <div class="ctrl-separator"></div>
-    <div class="strat-group"><span class="strat-label">producer</span><select class="strat-select" id="strat-producer" data-type="producer"></select></div>
-    <div class="strat-group"><span class="strat-label">processor</span><select class="strat-select" id="strat-processor" data-type="processor"></select></div>
-    <div class="strat-group"><span class="strat-label">trader</span><select class="strat-select" id="strat-trader" data-type="trader"></select></div>
-    <div class="strat-group"><span class="strat-label">speculator</span><select class="strat-select" id="strat-speculator" data-type="speculator"></select></div>
+    <div class="strat-group"><span class="strat-label">prod 1</span><select class="strat-select" data-label="producer_1"></select></div>
+    <div class="strat-group"><span class="strat-label">prod 2</span><select class="strat-select" data-label="producer_2"></select></div>
+    <div class="strat-group"><span class="strat-label">proc 1</span><select class="strat-select" data-label="processor_1"></select></div>
+    <div class="strat-group"><span class="strat-label">proc 2</span><select class="strat-select" data-label="processor_2"></select></div>
+    <div class="strat-group"><span class="strat-label">trader</span><select class="strat-select" data-label="trader"></select></div>
+    <div class="strat-group"><span class="strat-label">spec</span><select class="strat-select" data-label="speculator"></select></div>
   </div>
 
   <div id="graph"><svg></svg></div>
@@ -159,11 +161,28 @@
         .attr('transform', d => `translate(${d.x},${d.y})`)
     }
 
+    // balance is in pathUSD (e.g. 1000000 = 1M pathUSD); scale: 32–100
     function nodeRadius(d) {
-      const stats = nodeStats[d.id]
-      if (!stats) return 50
-      const balScore = Math.log1p(Number(stats.balance ?? 0) / 1e8) * 5
-      return Math.max(44, Math.min(90, 44 + balScore))
+      const bal = Number(nodeStats[d.id]?.balance ?? 0)
+      return Math.max(32, Math.min(100, 32 + Math.log1p(bal / 80_000) * 28))
+    }
+
+    // Tint: green=healthy, amber=struggling, red=near-bust
+    function nodeColor(d) {
+      const bal = Number(nodeStats[d.id]?.balance ?? -1)
+      if (bal < 0) return nodeColors[d.type] ?? '#888'          // unknown — use type color
+      if (bal < 50_000) return '#ef4444'                         // red: near bust
+      if (bal < 200_000) return '#f59e0b'                        // amber: struggling
+      return nodeColors[d.type] ?? '#888'
+    }
+
+    const nodeAbbrevMap = {
+      producer_1: 'PR1', producer_2: 'PR2',
+      processor_1: 'PC1', processor_2: 'PC2',
+      trader: 'TR', speculator: 'SP', market: 'MK',
+    }
+    function nodeAbbrev(d) {
+      return nodeAbbrevMap[d.label] || (d.label || d.type).slice(0, 4).toUpperCase()
     }
 
     function renderGraph() {
@@ -177,10 +196,12 @@
           .on('start', (event, d) => { if (!event.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y })
           .on('drag', (event, d) => { d.fx = event.x; d.fy = event.y })
           .on('end', (event, d) => { if (!event.active) simulation.alphaTarget(0); d.fx = null; d.fy = null }))
-      enter.append('circle').attr('fill', d => nodeColors[d.type] ?? '#888').attr('stroke', '#fff').attr('stroke-opacity', 0.3)
-      enter.append('text').attr('text-anchor', 'middle').attr('dy', 4).text(d => d.type.slice(0, 4).toUpperCase())
-      // Update radius on every render (covers both new and existing nodes)
-      nodeLayer.selectAll('.node circle').attr('r', d => nodeRadius(d))
+      enter.append('circle').attr('stroke', '#fff').attr('stroke-opacity', 0.3)
+      enter.append('text').attr('text-anchor', 'middle').attr('dy', 4).text(d => nodeAbbrev(d))
+      // Update radius + color on every render (covers both new and existing nodes)
+      nodeLayer.selectAll('.node circle')
+        .attr('r', d => nodeRadius(d))
+        .attr('fill', d => nodeColor(d))
       nodeSel.exit().remove()
 
       simulation.nodes(nodes)
@@ -231,7 +252,7 @@
           const div = document.createElement('div')
           div.className = 'lb-row' + (a.active ? '' : ' exited')
           const exitDisplay = a.exitScore ? Math.floor(Number(a.exitScore) / 1_000_000) + ' ✓' : balance + ' $'
-          div.innerHTML = `<span class="name">${a.type}</span><span class="score">${exitDisplay}</span><span style="font-size:0.65rem;color:#444">${txCount}tx</span>`
+          div.innerHTML = `<span class="name">${a.label || a.type}</span><span class="score">${exitDisplay}</span><span style="font-size:0.65rem;color:#444">${txCount}tx</span>`
           rows.appendChild(div)
         })
       } catch {}
@@ -243,14 +264,15 @@
       const div = document.createElement('div')
       div.className = `event ${ev.type}`
       const time = new Date(ev.ts).toLocaleTimeString()
+      const who = ev.agentLabel || ev.agentType || '?'
       if (ev.type === 'payment') {
-        div.textContent = `${time} 💸 ${ev.agentType} paid → ${(ev.to || '').replace(/https?:\/\/[^/]+/, '')}`
+        div.textContent = `${time} 💸 ${who} paid → ${(ev.to || '').replace(/https?:\/\/[^/]+/, '')}`
       } else if (ev.type === 'merge') {
-        div.textContent = `${time} 🤝 merge accepted by ${ev.agentType}`
+        div.textContent = `${time} 🤝 merge accepted by ${who}`
       } else if (ev.type === 'price-change') {
-        div.textContent = `${time} 📈 ${ev.agentType} price → ${(Number(ev.price || '0') / 1_000_000).toFixed(0)} pathUSD`
+        div.textContent = `${time} 📈 ${who} price → ${(Number(ev.price || '0') / 1_000_000).toFixed(0)} pathUSD`
       } else if (ev.type === 'decision') {
-        div.textContent = `${time} 🧠 ${ev.agentType} → ${ev.action}`
+        div.textContent = `${time} 🧠 ${who} → ${ev.action}`
       }
       list.prepend(div)
       if (list.children.length > 50) list.lastChild.remove()
@@ -323,7 +345,7 @@
         let newNodes = before !== nodes.length
         agents.filter(a => a.type !== 'market' && a.active).forEach(a => {
           if (!known.has(a.id)) {
-            nodes.push({ id: a.id, type: a.type, address: a.address, url: a.url, x: 300 + Math.random()*200, y: 200 + Math.random()*200 })
+            nodes.push({ id: a.id, type: a.type, label: a.label || a.type, address: a.address, url: a.url, x: 300 + Math.random()*200, y: 200 + Math.random()*200 })
             newNodes = true
           }
         })
@@ -358,12 +380,26 @@
       for (const node of nodes) {
         try {
           const status = await (await fetch(`${node.url}/status`)).json()
-          nodeStats[node.id] = { txCount: status.txCount ?? 0, balance: status.balance ?? '0' }
+          nodeStats[node.id] = { txCount: status.txCount ?? 0, balance: status.balance ?? '0', strategy: status.strategy }
         } catch {}
       }
-      // Update node sizes
-      nodeLayer.selectAll('.node circle').attr('r', d => nodeRadius(d))
+      // Update node sizes + colors with smooth transition
+      nodeLayer.selectAll('.node circle')
+        .transition().duration(600)
+        .attr('r', d => nodeRadius(d))
+        .attr('fill', d => nodeColor(d))
       refreshLeaderboard()
+      syncStrategySelects()
+    }
+
+    function syncStrategySelects() {
+      for (const node of nodes) {
+        const stats = nodeStats[node.id]
+        if (!stats?.strategy) continue
+        const label = node.label || node.type
+        const sel = document.querySelector(`.strat-select[data-label="${label}"]`)
+        if (sel && sel.value !== stats.strategy) sel.value = stats.strategy
+      }
     }
 
     // ── Market Prices Polling ──────────────────────────────────────────────────
@@ -442,12 +478,14 @@
     async function loadStrategies() {
       try {
         const strategies = await (await fetch(`${BASE}/control/strategies`)).json()
-        for (const [type, list] of Object.entries(strategies)) {
-          const sel = document.getElementById(`strat-${type}`)
-          if (!sel) continue
+        for (const sel of document.querySelectorAll('.strat-select[data-label]')) {
+          const label = sel.dataset.label
+          const type = label.replace(/_\d+$/, '')          // producer_1 → producer
+          const list = strategies[type]
+          if (!list) continue
           sel.innerHTML = list.map(s => `<option value="${s.name}">${s.name}</option>`).join('')
           sel.addEventListener('change', () => {
-            fetch(`${BASE}/control/strategy/${type}`, {
+            fetch(`${BASE}/control/strategy/agent/${label}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ name: sel.value }),

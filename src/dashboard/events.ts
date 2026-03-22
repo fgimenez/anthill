@@ -6,6 +6,7 @@ export interface AntEvent {
   txHash?: string
   price?: string
   agentType?: string
+  agentLabel?: string
   action?: string
   text?: string      // narration text
   tick?: number

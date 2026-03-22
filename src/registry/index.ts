@@ -3,6 +3,7 @@ export type AgentType = 'producer' | 'processor' | 'trader' | 'speculator' | 'ma
 export interface AgentEntry {
   id: string
   type: AgentType
+  label: string
   url: string
   address: string
   active: boolean

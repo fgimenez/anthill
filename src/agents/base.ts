@@ -40,6 +40,7 @@ export { adjustPrice }
 
 export interface AgentConfig {
   type: AgentType
+  label?: string        // e.g. 'producer_1', 'processor_2'; defaults to type
   port: number
   privateKey: `0x${string}`
   tickIntervalMs: number
@@ -58,6 +59,7 @@ export abstract class AgentBase {
   protected currentPrice: bigint
   protected readonly initialPrice: bigint
   protected strategy: { name: string; prompt: string } = { name: 'default', prompt: '' }
+  readonly label: string
   protected requestsThisTick = 0
   protected txCount = 0
   protected lastTx?: string
@@ -73,6 +75,7 @@ export abstract class AgentBase {
     this.address = account.address
     this.currentPrice = initialPrice
     this.initialPrice = initialPrice
+    this.label = config.label ?? config.type
     this.eventBus = config.eventBus ?? new EventEmitter()
 
     // Server-side client: routes send-tx methods to the fee payer relay (which co-signs
@@ -187,6 +190,7 @@ export abstract class AgentBase {
         to: url,
         txHash: receipt ?? undefined,
         agentType: this.config.type,
+        agentLabel: this.label,
         ts: Date.now(),
       })
       // Refresh balance async — we don't know exact amount charged, so re-read from chain
@@ -204,6 +208,7 @@ export abstract class AgentBase {
       from: this.address,
       price: this.currentPrice.toString(),
       agentType: this.config.type,
+      agentLabel: this.label,
       ts: Date.now(),
     })
   }
@@ -213,6 +218,7 @@ export abstract class AgentBase {
       type: 'decision',
       from: this.address,
       agentType: this.config.type,
+      agentLabel: this.label,
       action,
       ts: Date.now(),
     })
@@ -225,6 +231,7 @@ export abstract class AgentBase {
       body: JSON.stringify({
         id: `${this.config.type}-${this.address}`,
         type: this.config.type,
+        label: this.label,
         url: agentUrl,
         address: this.address,
       }),
@@ -273,13 +280,14 @@ export abstract class AgentBase {
         body: JSON.stringify({ exitScore }),
       }).catch(() => {})
     }
-    this.eventBus.emit('event', { type: 'merge', from: this.address, amount: buyout, agentType: this.config.type, ts: Date.now() })
+    this.eventBus.emit('event', { type: 'merge', from: this.address, amount: buyout, agentType: this.config.type, agentLabel: this.label, ts: Date.now() })
     console.log(`[${this.config.type}] acquired — exit score: ${exitScore} pathUSD`)
   }
 
   status() {
     return {
       type: this.config.type,
+      label: this.label,
       address: this.address,
       txCount: this.txCount,
       lastTx: this.lastTx,

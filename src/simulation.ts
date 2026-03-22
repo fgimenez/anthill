@@ -37,8 +37,9 @@ export class Simulation {
     this.privateKeys = Array.from({ length: 7 }, () => generatePrivateKey())
     const pk = (i: number) => this.privateKeys[i]
 
-    const base = (type: string, offset: number, i: number) => ({
+    const base = (type: string, label: string, offset: number, i: number) => ({
       type: type as never,
+      label,
       port: basePort + offset,
       privateKey: pk(i),
       tickIntervalMs: TICK,
@@ -56,13 +57,13 @@ export class Simulation {
     new Narrator(this.eventBus)
 
     this.agents = [
-      new MarketAgent    (base('market',     1, 0)),
-      new ProducerAgent  (base('producer',   2, 1)),
-      new ProducerAgent  (base('producer',   3, 2)),
-      new ProcessorAgent (base('processor',  4, 3), marketUrl),
-      new ProcessorAgent (base('processor',  5, 4), marketUrl),
-      new TraderAgent    (base('trader',     6, 5)),
-      new SpeculatorAgent(base('speculator', 7, 6)),
+      new MarketAgent    (base('market',     'market',      1, 0)),
+      new ProducerAgent  (base('producer',   'producer_1',  2, 1)),
+      new ProducerAgent  (base('producer',   'producer_2',  3, 2)),
+      new ProcessorAgent (base('processor',  'processor_1', 4, 3), marketUrl),
+      new ProcessorAgent (base('processor',  'processor_2', 5, 4), marketUrl),
+      new TraderAgent    (base('trader',     'trader',      6, 5)),
+      new SpeculatorAgent(base('speculator', 'speculator',  7, 6)),
     ]
     for (const a of this.agents) this.controller.register(a)
   }
