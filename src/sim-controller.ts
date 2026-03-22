@@ -36,13 +36,44 @@ export class SimController {
         winTicks: this.winTicks,
         ts: Date.now(),
       })
+
+      // Last-standing check: only one non-market agent active → they win
+      const activePlayers = this.agents.filter(a => a.agentType !== 'market' && a.isActive)
+      if (activePlayers.length === 1) {
+        clearInterval(this.masterInterval)
+        this.pause()
+        this.eventBus.emit('event', { type: 'game-over', tick: this.tickCount, ts: Date.now() })
+        this.declareWinner('last-standing')
+        console.log(`[sim] last standing — ${activePlayers[0].label}`)
+        return
+      }
+
       if (this.winTicks > 0 && this.tickCount >= this.winTicks) {
         clearInterval(this.masterInterval)
         this.pause()
         this.eventBus.emit('event', { type: 'game-over', tick: this.tickCount, ts: Date.now() })
+        this.declareWinner('tick-limit')
         console.log(`[sim] game over — ${this.tickCount} ticks`)
       }
     }, tickIntervalMs)
+  }
+
+  private declareWinner(reason: 'tick-limit' | 'last-standing') {
+    const players = this.agents.filter(a => a.agentType !== 'market' && a.isActive)
+    if (players.length === 0) return
+    const winner = players.slice().sort((a, b) => Number(b.status().balance) - Number(a.status().balance))[0]
+    const s = winner.status()
+    this.eventBus.emit('event', {
+      type: 'winner',
+      agentType: winner.agentType,
+      agentLabel: winner.label,
+      winnerLabel: winner.label,
+      winnerBalance: s.balance,
+      winReason: reason,
+      tick: this.tickCount,
+      ts: Date.now(),
+    })
+    console.log(`[sim] winner: ${winner.label} (${s.balance} pathUSD) — ${reason}`)
   }
 
   pause() {

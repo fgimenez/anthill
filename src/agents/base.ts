@@ -243,6 +243,7 @@ export abstract class AgentBase {
 
   get agentType() { return this.config.type }
   get port() { return this.config.port }
+  get isActive() { return this.active }
 
   setStrategy(s: { name: string; prompt: string }) { this.strategy = s }
 

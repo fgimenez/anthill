@@ -182,6 +182,19 @@ Strategies are defined in [`strategies/prompts.json`](strategies/prompts.json) �
 
 Every 5 ticks, a non-participant **Narrator** reviews everything that happened — payment volumes, price swings, mergers, agent decisions — and calls Claude Haiku to produce a 2-3 sentence financial-news-style commentary. The narrator refers to agents by their individual names (`producer_1`, `processor_2`, etc.) so the chronicle reads as a specific story, not a generic summary. The result appears in the **Chronicle** panel at the bottom of the dashboard: a scrollable, chronological record of the simulation's story from tick 1 to the end. Read it top to bottom to follow the drama as it unfolded.
 
+When the game ends, the narrator delivers a **Final Verdict** — a closing statement naming the winner, the reason they won, and the key moments that shaped the outcome.
+
+### Win conditions
+
+The simulation ends in two ways:
+
+| Condition | Trigger | Winner |
+|---|---|---|
+| **Tick limit** | All 50 ticks elapsed (configurable via `WIN_TICKS`) | Agent with the highest balance |
+| **Last standing** | Only one non-market agent remains active | That agent, regardless of balance |
+
+On game end: the winning agent's node glows gold in the graph, a banner appears above the dashboard, the leaderboard highlights their row, and the Narrator delivers the Final Verdict in the Chronicle.
+
 ### Merge mechanic
 
 Any agent exposes `POST /merge-offer` (MPP-protected). Speculator pays the buyout fee; target evaluates and accepts or rejects. On accept: target exits with a locked score (buyout + remaining balance), acquirer inherits its service routes.

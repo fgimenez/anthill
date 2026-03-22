@@ -25,6 +25,14 @@ Write a punchy, dramatic 2-3 sentence commentary in the style of a financial new
 
 Respond ONLY with JSON: {"narration": "<your commentary here>"}`
 
+const FINAL_VERDICT_PROMPT = `You are the narrator of Anthill — a live AI agent economy simulation.
+
+The game has ended. You are writing the FINAL VERDICT: a dramatic 3-4 sentence closing statement in the style of a financial news anchor signing off.
+
+Name the winner by their exact label (e.g. producer_1, processor_2). State why they won (last standing or highest balance at game end). Reference any notable events — mergers, price wars, agents that went bust. Make it feel historic.
+
+Respond ONLY with JSON: {"narration": "<your final verdict here>"}`
+
 export class Narrator {
   private buffer: AntEvent[] = []
   private ticksSinceLast = 0
@@ -37,6 +45,10 @@ export class Narrator {
       if (ev.type === 'restarted') {
         this.buffer = []
         this.ticksSinceLast = 0
+        return
+      }
+      if (ev.type === 'winner') {
+        this.finalVerdict(ev)
         return
       }
       if (ev.type === 'tick') {
@@ -97,6 +109,34 @@ export class Narrator {
         type: 'narration',
         tick,
         text: result.narration,
+        agentType: 'narrator',
+        ts: Date.now(),
+      } satisfies AntEvent)
+    } catch { /* non-fatal */ }
+  }
+
+  private async finalVerdict(ev: AntEvent): Promise<void> {
+    const buf = this.buffer
+    const context = {
+      winnerLabel: ev.winnerLabel,
+      winnerBalance: Math.floor(Number(ev.winnerBalance ?? 0)) + ' pathUSD',
+      winReason: ev.winReason === 'last-standing' ? 'last agent standing' : 'highest balance at tick limit',
+      tick: ev.tick,
+      mergers: buf.filter(e => e.type === 'merge').map(e => e.agentLabel ?? e.agentType),
+      totalPayments: buf.filter(e => e.type === 'payment').length,
+      recentPriceChanges: buf
+        .filter(e => e.type === 'price-change')
+        .slice(-6)
+        .map(e => ({ agent: e.agentLabel ?? e.agentType, price: Math.floor(Number(e.price ?? 0) / 1_000_000) + ' pathUSD' })),
+    }
+    try {
+      const result = await decide(FINAL_VERDICT_PROMPT, context, NarratorSchema, {
+        narration: `${ev.winnerLabel ?? 'An agent'} wins the simulation.`,
+      })
+      this.eventBus.emit('event', {
+        type: 'narration',
+        tick: ev.tick,
+        text: '🏆 FINAL VERDICT — ' + result.narration,
         agentType: 'narrator',
         ts: Date.now(),
       } satisfies AntEvent)
